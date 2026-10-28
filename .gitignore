@@ -1,0 +1,8 @@
+node_modules/
+*.apk
+*.zip
+*.tar.gz
+.env*
+__pycache__/
+.DS_Store
+.openai/.git-credential*

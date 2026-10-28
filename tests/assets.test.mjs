@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';
+import {WEAPONS,HAZARDS,SCENES} from '../dist/engine.js';
+const root=new URL('../dist/',import.meta.url),sprites=JSON.parse(fs.readFileSync(new URL('assets/sprites.json',root))),missions=JSON.parse(fs.readFileSync(new URL('assets/missions.json',root)));
+test('all 384 recovered sprite frames have their source atlas files',()=>{assert.equal(Object.keys(sprites).length,384);for(const [n,s]of Object.entries(sprites)){assert.ok(fs.existsSync(new URL(`assets/Graphics/${s.atlas}/${s.atlas}_${s.v[0]+1}.png`,root)),s.atlas);}});
+test('all 120 original missions have valid sequential groups and rewards',()=>{assert.equal(missions.length,120);for(const [i,m]of missions.entries()){assert.equal(m.id,i);assert.equal(m.group,Math.floor(i/40));assert.ok(m.target>0);assert.ok(m.reward>0);assert.ok(m.text.length>5);}});
+test('all weapon icons, hazards and location tiles exist',()=>{for(const w of WEAPONS){assert.ok(sprites[w.icon]);assert.ok(sprites[w.title]);}for(const h of HAZARDS)assert.ok(sprites[h.sprite]);for(const s of SCENES)assert.ok(sprites[`SCN_${s}_Tile_01`]);});
+test('all referenced sound files exist',()=>{const code=fs.readFileSync(new URL('game.js',root),'utf8');for(const match of code.matchAll(/['"]((?:S_|M_)\d{4}_[^'"\n]+\.(?:wav|mp3))['"]/g)){const name=match[1];assert.ok(fs.existsSync(new URL(`assets/Sounds/${name.startsWith('M_')?'Music':'Sfx'}/${name}`,root)),name);}});
+
+test('all DOM menu and control icons exist',()=>{for(const n of ['CHR_RunNGun_01','CHR_RunNShotgun_01','CHR_RunNUzzi_01','CHR_RunNRPG_01','CHR_RunNBow_01','CHR_SuperSketchman_01','CHR_Run_01','CHR_Jump_05','CHR_Glide_01','CON_Coin_01','HUD_JumpButton_01','HUD_FireButton_01','HUD_PauseBtn_01',...WEAPONS.map(w=>w.icon)])assert.ok(fs.existsSync(new URL(`icons/${n}.png`,root)),n);});

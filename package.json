@@ -1,0 +1,11 @@
+{
+  "name": "sketchman-browser",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mobile and desktop browser recreation of Sketchman 1.0.5",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check dist/game.js && node --check dist/engine.js"
+  },
+  "type": "module"
+}
