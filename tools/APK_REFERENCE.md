@@ -54,3 +54,23 @@ Two separate APK classes share the jet artwork. `impossible` (spawn type 7) upda
 `vessels` (spawn type 10) travels between two source positions at `350 * difficultyMultiplier` px/s using 2D distance, stays completely stationary for the final argument's duration in milliseconds, then retraces the path to its entry point and despawns. Its hold duration does not shrink with difficulty. It fires during the hold, with the existing 200 ms wind-up. Generic world scrolling and decorative bobbing must not be added to the held position. Source zero-coordinate defaults are y=160..416 and destination x=144..864.
 
 Regression tests use the actual type-7 and type-10 records, assert numerical speed and vertical bounds, measure stationary coordinates and retreat direction, and compare 30/60/120 FPS updates. Live APK execution remains unavailable.
+
+
+## Obstacle destruction effects and sounds
+
+Recovered from `through.a(int)`, `framework.all.c/d` and `framework.probed` in the supplied 1.0.5 APK. `tools/extract-destruction.py` reads the original .pag/.par definitions into `dist/destruction-data.js`: texture frame sizes, source offsets, particle counts, start/end colors, alpha midpoint, scale, velocity, rotation, spread, delays, lifetime and blend mode. The browser interpolates those values on a fixed 60 Hz particle clock, retaining the source renderer's per-update movement while keeping refresh rates consistent. This is recovered-code validation; no Android runtime was available.
+
+| Obstacle | Original group | Destruction sound ID |
+|---|---|---|
+| Crate | G_BoxDest | 19 |
+| Vertical spikes | G_SpikesVDest | 21 |
+| Horizontal/reverse spikes | G_SpikesHDest | 21 |
+| Saw | G_SawDest | 22 |
+| Air mine | G_AirMineDest | 23 |
+| Barrel shot | G_BarrelExplodeDest | 23 |
+| Barrel player collision | G_BarrelCrashDest | 24 |
+| Junk | G_JunkDest | 21 |
+| Land mine | G_LandMineDest | 23 |
+| Death ray | G_RayDest | 26 |
+
+Nonlethal projectile impacts use wood sound 20, barrel sound 25, ray sound 27, or metal sound 10. Lethal hits use only the destruction sound, as in the source. Player collisions select the same destruction group except for barrel collisions, which tumble the intact barrel instead of using its blast. Enemy deaths use their smoke group and optional blood group, with explosion sound 15 instead of crate destruction. The existing barrel area-damage behavior remains, but does not add a second generic explosion visual/audio over its recovered effect.
