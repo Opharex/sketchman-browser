@@ -2,11 +2,11 @@ const art=n=>`shop-art/${n}.png`;
 const categories=[['Coins',0,0],['Profit',1,0],['Powerups',0,1],['Record Breakers',1,1],['Extra Power',0,2],['Weapons',1,2]];
 const weaponCopy={5:['Semi-Auto','Improve your chances<br>with superior fire rate!'],2:['Sub Machine Gun','Be unstoppable<br>with super fast fire rate!'],1:['Shotgun','Take out more than<br>one enemy at a time!'],4:['Bow','Explosive power<br>Robin Hood style!'],7:['Shockwave','Short range Sonic Wave that<br>blasts multiple foes at once!'],3:['RPG',"Blast'em away<br>with power!"],6:['Homing Missiles','What more can you<br>ask for?'],8:['Super Sketchman','Why run when you can fly?<br>Go Super Sketchman!'],9:['Shadow Clones','Deadly Shadow Clones<br>that rip through your enemies!']};
 const weaponOrder=[5,2,1,4,7,3,6,8,9];
-export function renderMobileShop({root,save,weapons,items,onBack,onWeapon,onBuy,onEquip,category=null,scrollTop=null}){
+export function renderMobileShop({root,save,weapons,items,onBack,onWeapon,onBuy,onEquip,onSound=()=>{},category=null,scrollTop=null}){
  const fmt=n=>Math.floor(n).toLocaleString();
  root.innerHTML='';const shop=document.createElement('section');shop.className='mobile-shop';shop.setAttribute('aria-label','Shop');root.append(shop);
- const button=(label,fn,cls)=>{const b=document.createElement('button');b.type='button';b.className=cls;b.setAttribute('aria-label',label);b.onclick=fn;return b;};
- const rebuild=(cat,top=null)=>renderMobileShop({root,save,weapons,items,onBack,onWeapon,onBuy,onEquip,category:cat,scrollTop:top});
+ const button=(label,fn,cls)=>{const b=document.createElement('button');b.type='button';b.className=cls;b.setAttribute('aria-label',label);b.onclick=()=>{onSound();fn();};return b;};
+ const rebuild=(cat,top=null)=>renderMobileShop({root,save,weapons,items,onBack,onWeapon,onBuy,onEquip,onSound,category:cat,scrollTop:top});
  if(!category){
   shop.classList.add('shop-categories');
   const img=document.createElement('img');img.className='shop-categories-art';img.src='assets/Graphics/Store/STR_Categories_Back_01.jpg';img.alt='Choose a Category';shop.append(img);
