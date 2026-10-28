@@ -5,7 +5,7 @@
   "description": "Mobile and desktop browser recreation of Sketchman 1.0.5",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check dist/game.js && node --check dist/engine.js"
+    "check": "node --check dist/game.js && node --check dist/engine.js && node --check dist/animation.js && node --check dist/normal-run.js"
   },
   "type": "module"
 }
