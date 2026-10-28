@@ -46,3 +46,11 @@ The player's source centre is `(150, 428)` at ground level. Collision dimensions
 ## Remaining limits
 
 Boss movement/attack tactics, some projectile/effect behavior, exact enemy collision reactions, and tutorial scripting remain browser reimplementations. Original spawn data and animation registration/timing are recovered, but a side-by-side recording of later APK runs is still needed for visual verification against the running original.
+
+## Jet movement correction
+
+Two separate APK classes share the jet artwork. `impossible` (spawn type 7) updates position using `0.05 * elapsedMilliseconds`; its horizontal parameter is first divided by 1000. Thus `-4300` gives **-215 px/s**, before the difficulty multiplier, rather than -4300 px/s. Vertical input is an oscillation coefficient with that same 0.05 time factor; it is not a constant downward velocity. The optional horizontal sway is applied per fixed simulation tick. Negative fire flags suppress shooting, and enabled flying jets use a 1500 ms firing interval.
+
+`vessels` (spawn type 10) travels between two source positions at `350 * difficultyMultiplier` px/s using 2D distance, stays completely stationary for the final argument's duration in milliseconds, then retraces the path to its entry point and despawns. Its hold duration does not shrink with difficulty. It fires during the hold, with the existing 200 ms wind-up. Generic world scrolling and decorative bobbing must not be added to the held position. Source zero-coordinate defaults are y=160..416 and destination x=144..864.
+
+Regression tests use the actual type-7 and type-10 records, assert numerical speed and vertical bounds, measure stationary coordinates and retreat direction, and compare 30/60/120 FPS updates. Live APK execution remains unavailable.

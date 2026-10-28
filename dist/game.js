@@ -39,7 +39,7 @@ function renderWorld(){
   else if(e.type==='health'||e.type==='shield')drawFrame(e.type==='health'?'PWR_Health_01':'PWR_Invincible_01',e.x,cy+Math.sin(e.age*4)*3,.55);
   else if(e.type==='enemy'){
    const fade=e.dying?Math.max(0,1-(e.deathTime-.3)/.2):1;
-   drawFrame(enemyFrame(e),e.x,e.y-64,1,e.moveSpeed<0,fade);
+   drawFrame(enemyFrame(e),e.x,e.y-64,1,e.facingRight??e.moveSpeed<0,fade);
    if(!e.dying&&e.hp<e.maxHp){ctx.fillStyle='#fff';ctx.fillRect(e.x-30,e.y-e.h-20,60,5);ctx.fillStyle='#a63028';ctx.fillRect(e.x-30,e.y-e.h-20,60*e.hp/e.maxHp,5);}
   }else{
    let n=e.sprite;
