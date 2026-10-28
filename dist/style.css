@@ -61,3 +61,12 @@
 
 /* Notebook-themed, remappable keyboard controls. */
 .controls-settings{max-width:520px}.control-row{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px dashed #50729177;padding:8px 2px;font-weight:bold}.control-row button{min-width:135px;font-family:inherit}.controls-settings .actions{flex-wrap:wrap}
+
+/* Pause screen: the same ink-blue, notebook-paper visual language as the main game. */
+.paused .sketch-pause{inset:12% 23%;border:3px solid #285b87;border-radius:13px 9px 15px 10px;background:#efefdc url('shop-art/IMM_MenuBack_01.png') center/100% 100%;box-shadow:5px 6px 0 #143b5a66;padding:4%;font-family:'Comic Sans MS','Trebuchet MS',sans-serif;color:#164875}
+.paused .sketch-pause h1{font-family:inherit;font-style:italic;font-weight:900;color:#17588c;text-shadow:2px 2px 0 #d5e9ee;letter-spacing:1px}
+.paused .sketch-pause .actions{width:90%;gap:8px}
+.paused .sketch-pause .ink{width:100%;background:#72c9ed;border:2px solid #24567f;border-radius:13px 8px 14px 9px;color:#123f66;box-shadow:2px 3px 0 #234c7055;font-family:inherit;font-style:italic;font-weight:bold;text-shadow:none}
+.paused .sketch-pause .ink.primary{background:#159adb;color:#fff;text-shadow:1px 1px #1d5077}
+.weapon-selection{touch-action:none}
+@media(max-width:600px){.paused .sketch-pause{inset:7% 15%;padding:3%}.paused .sketch-pause .actions{gap:5px}}
