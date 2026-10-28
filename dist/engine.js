@@ -51,7 +51,7 @@ export class World{
  }
  shoot(){const w=this.weapon;if(!this.grounded&&w.id!==8)this.gliding=false;this.poseTimer=[.4,.5,.4,.5,.52,.4,.6,.5,.5,.008][w.id];this.cooldown=w.rate;this.shots++;this.event('FireWeapon',1,w.id);const count=w.pellets||1;for(let i=0;i<count;i++){this.bullets.push({x:PLAYER_X+[35,35,35,40,20,35,40,35,35,35][w.id],y:this.y-64+[-29,-10,-15,-30,-34,-29,-30,-10,-10,-10][w.id],vx:w.speed,vy:count>1?(i-(count-1)/2)*100:0,life:w.range?w.range/w.speed:1.6,damage:w.damage*(this.effects.power||1),id:w.id,blast:w.blast||0,pierce:w.pierce,homing:w.homing,hit:new Set()});}this.event('shoot',1,w.id);}
  destroy(e,shot=true){if(e.dead||e.dying)return;
- if(e.type==='enemy'){e.dying=true;e.deathTime=0;emitDestruction(this.particles,'G_EnFireExplode',e.x,e.y-e.h/2,()=>this.rand());if(this.effects.blood)emitDestruction(this.particles,'G_EnBlood',e.x,e.y-e.h/2,()=>this.rand());this.event('enemyDestroy');}
+ if(e.type==='enemy'){e.dying=true;e.dead=e.id===1;e.deathTime=0;emitDestruction(this.particles,'G_EnFireExplode',e.x,e.y-e.h/2,()=>this.rand());if(this.effects.blood)emitDestruction(this.particles,'G_EnBlood',e.x,e.y-e.h/2,()=>this.rand());this.event('enemyDestroy');}
  else{e.dead=true;emitDestruction(this.particles,destructionGroup(e.id,!shot),e.x,e.y-e.h/2,()=>this.rand());this.event(shot?'hazardDestroy':'hazardCrash',1,e.id);}
  if(shot){this.event(e.type==='enemy'?'KilledMovingEnemy':'DestroyedStaticHazard',1,e.id);if(e.type==='enemy')this.kills++;for(let i=0;i<(this.effects.blood&&e.type==='enemy'?6:3);i++)this.spawn('coin',0,e.x+(i-1)*25,e.y-40-i*15);}
  // Barrel visual/audio comes from G_BarrelExplodeDest; do not layer RPG feedback over it.
