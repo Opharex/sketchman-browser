@@ -95,3 +95,10 @@ Earned-coin purchases, weapon equipment and consumable stock/enabling retain the
 ## UI button audio
 
 `up.b`, `We.b`, and `TGameStore.b/c` call sound ID 1 for main-menu selection, category selection/back, catalog back, successful purchases and insufficient-funds attempts. `framework.way.a(int)` resolves ID 1 as its first sound entry, S_0001_Click.wav. All active shop buttons now call the same existing audio player once at activation, including enable controls; purchase callbacks no longer play an extra click. HUD pause and browser fullscreen controls use the same click; jump/fire retain their gameplay sounds. Disabled purchased/equipped buttons do not activate audio. The original WAV bytes are retained and sound/volume preferences apply.
+
+
+## Original pre-run player selection
+
+`TILayer_PlayerSelect` defines a horizontal 10-card carousel in order 0,5,2,1,4,7,3,6,8,9. The browser now renders its original PLS_WeaponBase, description panel, title graphics, coin counter, lock/cost, Select/Unlock and Shop/Back artwork directly from the already loaded atlases. The recovered card centre is (480,290), neighboring card stride 450, preview offset (45,20), stat offsets (-122,-20) and (-122,70), title offset (0,-160), and action offset (120,145). Side cards use a reduced preview scale; button/keyboard/swipe browsing is bounded at the ends. Original source stat mark levels and armed 17-frame character previews are used, including Super and clone variants. Descriptions use the recovered two-line text.
+
+Select on an owned weapon now equips it and starts the run, using its weapon sound as in the source. Unlock purchases keep the carousel open and reveal Select; failed purchases leave the balance untouched. The Shop return path restores the browsed weapon. The browser keeps accessible DOM controls above the canvas art, with visible desktop browsing arrows; text remains browser rendered. Tests verify original order, all atlas references and preview frames, and locked/owned art states. Browser checks covered insufficient coins, Shop return, browsing and starting a run.

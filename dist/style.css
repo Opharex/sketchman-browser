@@ -47,3 +47,14 @@
 #frame:has(.mobile-shop) #mobileFullscreen{display:none}
 
 #frame:has(.mobile-shop){touch-action:pan-y}
+
+/* Original pre-run carousel; art is drawn at recovered 960x640 coordinates. */
+.weapon-selection{position:absolute;inset:0;outline:none;touch-action:none;user-select:none}
+.weapon-selection button{position:absolute;background:transparent;border:0;box-shadow:none;padding:0;color:#164875;touch-action:manipulation}
+.weapon-selection button:focus-visible{outline:3px solid #d0473b;outline-offset:-3px;border-radius:12px}
+.selection-prev{left:0;top:13%;width:22%;height:66%}.selection-next{right:0;top:13%;width:22%;height:66%}
+.selection-prev span,.selection-next span{position:absolute;top:37%;font-size:clamp(25px,5vw,58px);text-shadow:0 1px 3px #fff;opacity:.7}
+.selection-prev span{left:8%}.selection-next span{right:8%}.weapon-selection button:disabled{visibility:hidden}
+.selection-action{left:53.5%;top:61%;width:20%;height:13.5%}.selection-back{left:1.5%;top:84%;width:11.5%;height:15%}.selection-shop{left:75%;top:84%;width:24%;height:15%}
+.selection-status{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+#frame:has(.weapon-selection) #mobileFullscreen{display:none}
