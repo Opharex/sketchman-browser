@@ -74,3 +74,12 @@ Recovered from `through.a(int)`, `framework.all.c/d` and `framework.probed` in t
 | Death ray | G_RayDest | 26 |
 
 Nonlethal projectile impacts use wood sound 20, barrel sound 25, ray sound 27, or metal sound 10. Lethal hits use only the destruction sound, as in the source. Player collisions select the same destruction group except for barrel collisions, which tumble the intact barrel instead of using its blast. Enemy deaths use their smoke group and optional blood group, with explosion sound 15 instead of crate destruction. The existing barrel area-damage behavior remains, but does not add a second generic explosion visual/audio over its recovered effect.
+
+
+## Boss encounter, projectile orientation, and damage bars
+
+`dragon.and`, `and$re`, `TWeaponDispenser`, and `dragon.probed` define the jeep encounter. It starts at (-200,382), passes through (1200,382), then settles at (720,412). Each update approaches with gain 20/10000 per millisecond, capped at 10 pixels per axis. The port runs that movement at a fixed 60 Hz. The boss is invulnerable until the second waypoint is reached. Its gunman offset is (-100,-100), wheels are (-85,48) and (110,48), and bullet origin is (-160,-100); sprites now use their original scale.
+
+The first boss has 800 health and a 1750 ms volley interval; subsequent encounters add 300 health and shorten the interval by 250 ms, down to 250 ms. Projectile code applies the linear movement twice, yielding horizontal speeds 700/800/700 px/s. Source player-centre height bands <202, 202–358, and >358 select upward, level, or downward three-shot spreads. The first volley starts when combat begins. Enemy projectiles use the original BUL_HeliBullet sprite rotated into their velocity vector; jet muzzle placement follows the shooter's facing. Existing obstacles remain and keep moving during the entrance/fight; the director pauses new obstacle spawns.
+
+The requested one-projectile jet kills use 35 health (the weakest browser weapon's projectile damage). The APK's recovered jet health is 50, so this is an explicit user-directed adjustment, not a claimed extraction. Damage bars use GPROP_DamageBar/Base art, remain hidden until damage, and follow live obstacles/enemies. Bars remain visible after the first hit per the user's requested behavior rather than the recovered one-second display timer. Boss health follows its gunman rather than appearing as a fixed HUD strip. Verification uses recovered APK code, simulation tests and browser rendering; no Android runtime is available here.

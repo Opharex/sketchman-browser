@@ -1,3 +1,4 @@
+import {bossTarget,enemyBulletRotation,healthBar} from './boss.js';
 import {effectSound,EFFECT_TEXTURES} from './destruction.js';
 import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
@@ -24,6 +25,16 @@ function paper(){ctx.fillStyle='#efefdd';ctx.fillRect(0,0,960,640);if(assets.IMM
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 function renderMenu(){paper();original('IMM_MainMenu_01',35,13,890,596);notebook();}
 function drawFrame(n,x,y,scale=1,flip=false,alpha=1,rotation=0){const im=assets[n],meta=sprites[n];if(!im||!meta)return;const p=framePlacement(meta,0,0,scale);ctx.save();ctx.translate(x,y);ctx.rotate(rotation);if(flip)ctx.scale(-1,1);ctx.globalAlpha=alpha;ctx.drawImage(im,p.x,p.y,p.w,p.h);ctx.restore();}
+function drawHealthBar(x,y,fraction){
+ drawFrame('GPROP_DamageBarBase_01',x,y,1);
+ ctx.save();ctx.beginPath();ctx.rect(x-32,y-3,64*fraction,6);ctx.clip();drawFrame('GPROP_DamageBar_01',x,y,1);ctx.restore();
+}
+function renderBoss(w){const b=w.boss||w.bossDeath;if(!b)return;const dying=!!w.bossDeath&&!w.boss,alpha=dying?Math.min(1,(.7-b.deathTime)*4):1;
+ drawFrame('ENM_Jeep_01',b.x,b.y,1,false,alpha);
+ drawFrame(frameName(dying?'ENM_EnemyBOSS_Death_':'ENM_EnemyBOSS_Idle_',frameOf(dying?'bossDeath':'bossIdle',dying?b.deathTime:b.t)),b.x-100,b.y-100,1,false,alpha);
+ for(const dx of [-85,110])drawFrame('ENM_JeepWheel_01',b.x+dx,b.y+48,1,false,alpha,b.t*2*1000*Math.PI/180);
+ if(!dying&&b.healthShown)drawHealthBar(b.x-90,b.y-200,Math.max(0,b.hp/b.maxHp));
+}
 function renderWorld(){
  const w=world;
  if(assets.gamePaper)ctx.drawImage(assets.gamePaper,0,0,960,640,0,0,960,640);else paper();
@@ -32,6 +43,7 @@ function renderWorld(){
  for(let i=start;i<=end;i++){if(i<0)continue;drawFrame(sceneryTile(i),i*1024-w.backgroundScroll+256,218,2);}
  let off=w.scroll%1024;for(let x=-off;x<960;x+=1024)original('SCN_Floor_01',x,400,1024,64);
  ctx.save();if(save.settings.shake&&w.shake>0)ctx.translate(Math.sin(anim*71)*w.shake,Math.cos(anim*91)*w.shake*.4);
+ if(w.boss?.phase==='pass')renderBoss(w);
  // Draw all shadows first; animation trim never moves their world anchors.
  for(const e of w.entities){if(e.x>1160||e.type==='coin'||e.type==='health'||e.type==='shield')continue;const nearFloor=e.y-e.h/2>350;if(nearFloor)img('SCN_Shadow_01',e.x-45,473,90,14,.22);}
  const actorX=PLAYER_X+(w.dead?w.deathSlide:0),actorY=w.y-64;
@@ -42,7 +54,7 @@ function renderWorld(){
   else if(e.type==='enemy'){
    const fade=e.dying?Math.max(0,1-(e.deathTime-.3)/.2):1;
    drawFrame(enemyFrame(e),e.x,e.y-64,1,e.facingRight??e.moveSpeed<0,fade);
-   if(!e.dying&&e.hp<e.maxHp){ctx.fillStyle='#fff';ctx.fillRect(e.x-30,e.y-e.h-20,60,5);ctx.fillStyle='#a63028';ctx.fillRect(e.x-30,e.y-e.h-20,60*e.hp/e.maxHp,5);}
+
   }else{
    let n=e.sprite;
    if(e.id===4)n=frameName('HAZ_Saw_',frameOf('saw',e.age));
@@ -50,14 +62,9 @@ function renderWorld(){
    if(e.id===7)n=frameName('HAZ_Ray_',frameOf('ray',e.age));
    drawFrame(n,e.x,cy,1,e.moveSpeed<0);
   }
+  const bar=healthBar(e);if(bar)drawHealthBar(bar.x,bar.y,bar.fraction);
  }
- const b=w.boss||w.bossDeath;
- if(b){const dying=!!w.bossDeath&&!w.boss,alpha=dying?Math.min(1,(.7-b.deathTime)*4):1;
-  drawFrame('ENM_Jeep_01',b.x,FLOOR-51,.8,false,alpha);
-  drawFrame(frameName(dying?'ENM_EnemyBOSS_Death_':'ENM_EnemyBOSS_Idle_',frameOf(dying?'bossDeath':'bossIdle',dying?b.deathTime:b.t)),b.x-15,FLOOR-122,.8,false,alpha);
-  for(const dx of [-91,90])drawFrame('ENM_JeepWheel_01',b.x+dx,FLOOR-11,.8,false,alpha,w.scroll/32);
-  if(!dying){ctx.fillStyle='#e3dcd2';ctx.fillRect(325,116,320,12);ctx.fillStyle='#ac382c';ctx.fillRect(325,116,320*Math.max(0,b.hp/b.maxHp),12);text('BOSS',485,108,19,'#953a2a','center');}
- }
+ if((w.boss||w.bossDeath)?.phase!=='pass')renderBoss(w);
  for(const bullet of w.bullets){const b=bullet;
   if(b.id===3||b.id===6){img('BUL_HeliBullet_01',b.x-17,b.y-6,34,12);ctx.fillStyle='#ee9e26';ctx.fillRect(b.x-24,b.y-3,10,6);}
   else if(b.id===4)drawFrame('BUL_GrenadeArrow_01',b.x,b.y,.7,false,1,Math.atan2(b.vy,b.vx));
@@ -66,7 +73,7 @@ function renderWorld(){
   else if(b.id===9)drawFrame(frameName('CHR_Run_',frameOf('run',w.t)),b.x,b.y,1,false,.45);
   else{ctx.strokeStyle='#1a4b7d';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(b.x-16,b.y);ctx.lineTo(b.x+6,b.y);ctx.stroke();}
  }
- for(const b of w.enemyBullets)drawFrame('BUL_HeliBossBullet_01',b.x,b.y,.7);
+ for(const b of w.enemyBullets)drawFrame(b.sprite||'BUL_HeliBullet_01',b.x,b.y,1,false,1,enemyBulletRotation(b));
  const n=playerFrame(w),blink=w.invincible>0&&w.invincible<1.5&&Math.floor(w.t*10)%2;
  if(!blink){if(n==='CHR_DeadFloor_01')drawFrame(n,actorX+20,FLOOR-22,1);else drawFrame(n,actorX,actorY,1);}
  if(w.invincible>1.5)drawFrame(frameName('PROP_Shield_',frameOf('shield',w.t)),actorX+30,actorY-4,w.gliding?.8:1,false,.85);
@@ -116,7 +123,7 @@ function missionEligible(m,type,sub){if(m.event!==type)return false;const t=m.te
  if(type==='FireWeapon'){const names={pistol:0,shotgun:1,smg:2,rpg:3,'explosive arrows':4};for(const [word,id]of Object.entries(names))if(t.includes(word)&&sub!==id)return false;}
  if(type==='DestroyedStaticHazard'||type==='SmashIntoStaticHazard'||type==='NearMissStaticHazard'){const names={crate:0,barrel:1,'spike board':2,'land mine':3,saw:4,'air mine':5,'junk pile':6,'death ray':7};for(const [word,id]of Object.entries(names))if(t.includes(word)&&sub!==id)return false;}
  if(type==='KilledMovingEnemy'){if(t.includes('jet')&&sub!==1)return false;if((t.includes('sword')||t.includes('knife'))&&sub!==0)return false;}return true;}
-function event(type,amount=1,sub=0){if(['shoot','jump','coin','hit','hazardDestroy','hazardCrash','hazardHit','enemyDestroy','explosion','health','shield','revive'].includes(type))sfx(type,sub);if(type==='bossStart'){setMusic('M_0003_Boss.wav');toast('BOSS INCOMING!');}if(type==='bossEnd'){setMusic('M_0002_InGame.wav');toast('Boss defeated! +100 coins');}if(type==='revive')toast('Extra life! Back in action.');if(type==='Died'){resetInput();setMusic('M_0004_GameOverLoop.wav');}
+function event(type,amount=1,sub=0){if(type==='bossShoot')sfx('shoot',1);if(['shoot','jump','coin','hit','hazardDestroy','hazardCrash','hazardHit','enemyDestroy','explosion','health','shield','revive'].includes(type))sfx(type,sub);if(type==='bossStart'){setMusic('M_0003_Boss.wav');toast('BOSS INCOMING!');}if(type==='bossEnd'){setMusic('M_0002_InGame.wav');toast('Boss defeated! +100 coins');}if(type==='revive')toast('Extra life! Back in action.');if(type==='Died'){resetInput();setMusic('M_0004_GameOverLoop.wav');}
  if(!missions.length||!world)return;if(['GotCoin','GotHP','Ran1Meter','Glide1Meter','BossKill','FireWeapon','KilledMovingEnemy','DestroyedStaticHazard','PlayGame'].includes(type))save.totals[type]=(save.totals[type]||0)+amount;
  for(const m of activeMissions()){if(save.completed.includes(m.id)||pendingMission.includes(m.id)||!missionEligible(m,type,sub))continue;const key=String(m.id);let inc=amount;if(type==='Died')inc=m.target;save.missionProgress[key]=(save.missionProgress[key]||0)+inc;if(save.missionProgress[key]>=m.target){pendingMission.push(m.id);save.completed.push(m.id);save.coins+=m.reward;sfx('complete');toast(`Mission complete!\n${m.text}\n+${fmt(m.reward)} coins`);persist();}}
 }
