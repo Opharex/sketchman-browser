@@ -87,7 +87,24 @@ function button(label,fn,cls='ink'){const b=document.createElement('button');b.c
 function screen(title,{close=menu,balance=false}={}){ui.innerHTML='';const s=document.createElement('section');s.className='screen';const h=document.createElement('header');const t=document.createElement('h1');t.textContent=title;h.append(t);if(balance){const bal=document.createElement('span');bal.className='balance';bal.textContent=`◉ ${fmt(save.coins)}`;h.append(bal);}const b=button('×',close,'');b.setAttribute('aria-label','Back');h.append(b);s.append(h);const c=document.createElement('div');c.className='content';s.append(c);ui.append(s);return {s,c,h};}
 function menu(){if(world&&!ended)finishRun(true);state='menu';world=null;resetInput();ui.innerHTML='';setMusic('M_0001_Menu.mp3');const spots=[['Play',playSelect,32.1,49,35.5,17],['Shop',()=>shop('menu'),35,66.3,29.4,13.8],['Scores',scores,65.7,69,29.3,11.6],['Tutorial',()=>startRun(true),35.5,81.2,29.8,10.7],['Options',settings,65.6,81,29.6,11.6],['About',about,4.4,81.1,28.6,11.8]];for(const [label,fn,left,top,width,height]of spots){const b=button(label,fn,'hit');b.setAttribute('aria-label',label);b.style.cssText=`left:${left}%;top:${top}%;width:${width}%;height:${height}%`;ui.append(b);}if(!storageOK)toast('Browser storage is unavailable. Progress will last for this session.');}
 function playSelect(){state='select';const {s,c}=screen('Choose your weapon',{balance:true});const grid=document.createElement('div');grid.className='grid';for(const w of WEAPONS){const unlocked=save.unlocked.includes(w.id),selected=save.selected===w.id;const card=document.createElement('article');card.className=`card${selected?' selected':''}`;card.innerHTML=`<img src="${ICON('CHR_Run'+(w.skin==='Clone'?'':w.skin==='Super'?'':'N'+w.skin)+'_01')}" alt="" onerror="this.src='icons/${w.id===8?'CHR_SuperSketchman_01':'CHR_Run_01'}.png'"><h2>${w.name}</h2><p>${w.desc}</p><span class="price">${unlocked?(selected?'Equipped':'Unlocked'):`◉ ${fmt(w.cost)}`}</span>`;const b=button(unlocked?'Select':`Unlock`,()=>{if(buyWeapon(save,w.id)){persist();playSelect();}else toast(`You need ${fmt(w.cost-save.coins)} more coins.`);});if(selected)b.disabled=true;card.append(b);grid.append(card);}c.append(grid);const a=document.createElement('div');a.className='actions';a.append(button('Missions',missionScreen),button('Run →',()=>startRun(),'ink primary'));s.append(a);}
-function attachHud(){ui.innerHTML='';const make=(label,n,cls)=>{const b=document.createElement('button');b.className=`hud-button ${cls}`;b.setAttribute('aria-label',label);b.innerHTML=`<img src="${ICON(n)}" alt="">`;ui.append(b);return b;};const j=make('Jump. Press twice to double jump, third press and hold to glide.','HUD_JumpButton_01','jump');const f=make('Fire. Hold to shoot.','HUD_FireButton_01','fire');const p=make('Pause','HUD_PauseBtn_01','pause');p.onclick=pause;for(const [el,type]of [[j,'jump'],[f,'fire']]){el.addEventListener('pointerdown',e=>{e.preventDefault();el.setPointerCapture(e.pointerId);if(type==='jump'){pointerJump.add(e.pointerId);world.jump();world.jumpHeld=true;}else{pointerFire.add(e.pointerId);if(world.cooldown<=0)world.shoot();}syncInput();});const release=e=>{(type==='jump'?pointerJump:pointerFire).delete(e.pointerId);syncInput();};el.addEventListener('pointerup',release);el.addEventListener('pointercancel',release);el.addEventListener('lostpointercapture',release);}
+function attachHud(){
+ ui.innerHTML='';
+ const make=(label,n,cls)=>{const el=document.createElement('button');el.className=`hud-button ${cls}`;el.setAttribute('aria-label',label);el.innerHTML=`<img src="${ICON(n)}" alt="">`;ui.append(el);return el;};
+ const j=make('Jump indicator','HUD_JumpButton_01','jump'),f=make('Fire indicator','HUD_FireButton_01','fire'),p=make('Pause','HUD_PauseBtn_01','pause');
+ p.onclick=pause;j.tabIndex=-1;f.tabIndex=-1;
+ const surface=$('#frame'),indicators=()=>{j.classList.toggle('lit',pointerJump.size>0);f.classList.toggle('lit',pointerFire.size>0);};
+ surface.onpointerdown=e=>{
+  if(state!=='playing'||!world||e.target.closest('.pause'))return;
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  e.preventDefault();
+  const r=surface.getBoundingClientRect(),left=e.clientX<r.left+r.width/2;
+  try{surface.setPointerCapture(e.pointerId);}catch{}
+  if(left){pointerJump.add(e.pointerId);world.jump();world.jumpHeld=true;}
+  else{pointerFire.add(e.pointerId);if(world.cooldown<=0)world.shoot();}
+  syncInput();indicators();
+ };
+ const release=e=>{pointerJump.delete(e.pointerId);pointerFire.delete(e.pointerId);syncInput();indicators();};
+ surface.onpointerup=release;surface.onpointercancel=release;surface.onlostpointercapture=release;
 }
 
 function resetInput(){pointerJump.clear();pointerFire.clear();keys.clear();if(world){world.fireHeld=false;world.releaseJump();}}
