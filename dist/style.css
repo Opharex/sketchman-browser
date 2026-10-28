@@ -13,3 +13,37 @@
 .hud-button.jump.lit img,.hud-button.fire.lit img{filter:brightness(1.5) saturate(1.7) drop-shadow(0 0 12px #ffdc61);transform:scale(.96)}
 #mobileFullscreen{position:absolute;left:2%;top:2%;z-index:8;border:0;border-radius:5px;background:#17456b9c;color:white;font-size:19px;padding:2px 8px;touch-action:manipulation}
 #frame{touch-action:none}
+
+/* APK shop: illustrated category chooser and 150px scrolling catalog rows. */
+.mobile-shop{position:absolute;inset:0;overflow:hidden;container-type:inline-size;background:#efefdc url('shop-art/IMM_MenuBack_01.png') center/100% 100%;color:#133f68;font-family:'Comic Sans MS','Trebuchet MS',sans-serif;touch-action:pan-y}
+.shop-categories-art{position:absolute;left:0;top:0;width:106.666667%;height:160%;max-width:none;pointer-events:none}
+.mobile-shop button{border:0;box-shadow:none;background:transparent;padding:0;touch-action:manipulation}
+.shop-category-hit,.shop-category-back{position:absolute;border-radius:4%!important;color:transparent}
+.shop-category-hit:hover,.shop-category-hit:active{background:#ffffff24!important}
+.shop-category-hit:focus-visible{outline:3px solid #184c7b;outline-offset:-3px}
+.shop-category-back{left:3%;top:84%;width:11%;height:15%}
+.shop-list{position:absolute;left:0;right:0;top:0;bottom:20%;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:#286087 transparent}
+.shop-divider{position:relative;height:15.625cqw;margin:0;flex:none;line-height:1;font-size:2.65cqw;font-weight:bold}
+.shop-divider span{position:absolute;left:4.2%;top:3.8cqw}
+.shop-divider img{position:absolute;left:3.33%;top:8.4cqw;width:93.33%;height:4.58cqw}
+.shop-row{position:relative;height:15.625cqw;isolation:isolate}
+.shop-item-art{position:absolute;left:3.75%;top:1.15cqw;width:13.3333%;height:13.3333cqw;object-fit:contain}
+.shop-item-copy{position:absolute;left:18.75%;top:2.4cqw;width:43%;line-height:1.3}
+.shop-item-copy h3{font-size:2.1cqw;line-height:1.2;margin:0;font-weight:bold}
+.shop-item-copy h3{margin:0 0 1.4cqw}
+.shop-item-copy p{font-size:1.78cqw;line-height:1.35;margin:0;max-width:100%;text-wrap:balance}
+.shop-price,.shop-stock{position:absolute;top:2.4cqw;display:flex;flex-direction:column;align-items:flex-end;font-size:1.8cqw;gap:.9cqw;line-height:1.15}
+.shop-price{right:17.7%;min-width:12%}.shop-stock{right:2.1%;min-width:8%}.shop-row:has(.shop-stock) .shop-price{right:17.7%}.shop-row:not(:has(.shop-stock)) .shop-price{right:2.1%}
+.shop-price strong,.shop-stock strong{font-size:2.2cqw;font-weight:bold}
+.shop-buy{position:absolute;right:2.1%;top:9.1cqw;width:19.1667%;height:7.7083cqw;cursor:pointer}
+.shop-buy img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.shop-buy-owned{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:2cqw;font-weight:bold;text-shadow:1px 1px 2px #073969}
+.shop-buy:disabled{opacity:1;cursor:default}.shop-buy:active .shop-buy-base{filter:brightness(1.2)}
+.shop-enable{position:absolute;right:23%;top:11.15cqw;color:#234e72;font-size:1.5cqw!important;text-decoration:underline;min-height:3.4cqw;min-width:9%}.shop-enable[aria-pressed=true]{color:#276539;text-decoration:none}
+.shop-hud{position:absolute;left:0;bottom:0;width:100%;height:20%;z-index:2}
+.shop-hud>img{position:absolute;left:.42%;top:0;width:100.83%;height:106.25%;pointer-events:none}
+.shop-hud>strong{position:absolute;left:73%;top:49%;transform:translateY(-50%);font-size:2.9cqw;font-weight:bold;color:#173f66}
+.shop-hud-back{position:absolute;left:1.7%;top:7%;width:13%;height:85%}
+#frame:has(.mobile-shop) #mobileFullscreen{display:none}
+
+#frame:has(.mobile-shop){touch-action:pan-y}
