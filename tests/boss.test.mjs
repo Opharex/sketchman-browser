@@ -26,8 +26,8 @@ test('boss entrance retains obstacles while stopping new obstacle spawns',()=>{
 test('entrance cannot take hits; first hit in combat reveals following boss health bar',()=>{
  const w=new World();w.boss=createBoss();w.damageBoss(40);assert.equal(w.boss.hp,800);assert.equal(w.boss.healthShown,false);w.boss=fight();w.damageBoss(40);assert.equal(w.boss.hp,760);assert.equal(w.boss.healthShown,true);
 });
-test('every weapon kills a jet with one projectile hit',()=>{
- for(const weapon of WEAPONS){const w=new World({weapon:weapon.id});w.spawnTimer=w.coinTimer=100;w.spawn('enemy',1,700,200);const jet=w.entities[0];w.bullets.push({id:weapon.id,x:700,y:150,vx:0,vy:0,life:1,damage:weapon.damage,hit:new Set()});w.update(1/120);assert.equal(jet.dying,true,weapon.name);}
+test('APK jet health is 50; projectile damage determines one- or two-hit kills',()=>{
+ for(const weapon of WEAPONS){const w=new World({weapon:weapon.id});w.spawnTimer=w.coinTimer=100;w.spawn('enemy',1,700,200);const jet=w.entities[0];w.bullets.push({id:weapon.id,x:700,y:150,vx:0,vy:0,life:1,damage:weapon.damage,hit:new Set()});w.update(1/120);assert.equal(jet.maxHp,50);assert.equal(jet.dying,weapon.damage>=50,weapon.name);if(weapon.damage<50){assert.equal(jet.hp,50-weapon.damage);assert.equal(jet.healthShown,true);w.bullets.push({id:weapon.id,x:jet.x,y:jet.y-50,vx:0,vy:0,life:1,damage:weapon.damage,hit:new Set()});w.update(1/120);assert.equal(jet.dying,true,weapon.name);assert.equal(jet.dead,true);}}
 });
 test('jet faces the player during firing, muzzle is on facing side, bullets rotate with velocity',()=>{
  for(const x of [90,700]){const w=new World();w.spawnTimer=w.coinTimer=100;w.spawn('enemy',1,x,200);const e=w.entities[0];e.moveSpeed=0;e.shoot=0;e.canShoot=true;w.invincible=10;tick(w,.21);const b=w.enemyBullets[0];assert.ok(b);assert.equal(e.facingRight,x<150);assert.equal(Math.sign(b.vx),x<150?1:-1);assert.ok((b.x-e.x)*(x<150?1:-1)>0);assert.equal(enemyBulletRotation(b),Math.atan2(b.vy,b.vx));}
