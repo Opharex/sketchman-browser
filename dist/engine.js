@@ -6,6 +6,20 @@ import {configureJet,advanceJet,jetCanFire} from './jet-motion.js';
 import {NormalRunDirector} from './normal-run.js';
 // Pure, frame-rate independent simulation shared by the browser and Node tests.
 export const WIDTH=960, HEIGHT=640, FLOOR=492, PLAYER_X=150;
+// Segment versus expanded AABB, so fast projectiles cannot tunnel through the player.
+// The player bounds are anchored to the same feet position used by entity collisions.
+export function segmentHitsBox(x0,y0,x1,y1,left,top,right,bottom){
+ let enter=0,exit=1;
+ for(const [origin,delta,min,max] of [[x0,x1-x0,left,right],[y0,y1-y0,top,bottom]]){
+  if(Math.abs(delta)<1e-9){if(origin<min||origin>max)return false;continue;}
+  let a=(min-origin)/delta,b=(max-origin)/delta;
+  if(a>b)[a,b]=[b,a];
+  enter=Math.max(enter,a);exit=Math.min(exit,b);
+  if(enter>exit)return false;
+ }
+ return true;
+}
+
 export const WEAPONS=[
  {id:0,name:'Pistol',cost:0,rate:.60,damage:40,speed:1000,skin:'Gun',icon:'STR_ICO_WeaponA_01',title:'PLS_PistolTitle_01',desc:'A standard 9mm. Can take out weaker foes.'},
  {id:1,name:'Shotgun',cost:15000,rate:.80,damage:55,speed:1000,skin:'Shotgun',pellets:5,icon:'STR_ICO_WeaponB_01',title:'PLS_ShotgunTitle_01',desc:'Five pellets. Take out more than one enemy at a time.'},
@@ -81,7 +95,18 @@ export class World{
  for(const b of this.bullets){b.life-=dt;if(b.homing){const target=this.boss||this.entities.find(e=>!e.dead&&e.hp>0&&e.x>b.x);if(target){b.vy+=(Math.sign(target.y-(target.h||120)/2-b.y)*520-b.vy)*dt*4;}}b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.id===4)b.vy+=250*dt;for(const e of this.entities){if(e.dead||e.dying||!e.hp||b.hit.has(e)||b.life<=0)continue;const radius=b.id===7?35:b.id===9?30:6;if(Math.abs(b.x-e.x)<e.w/2+radius&&b.y>e.y-e.h-radius&&b.y<e.y+radius){e.hp-=b.damage;e.healthShown=true;b.hit.add(e);this.particle(b.x,b.y,'#4d7693',4);if(e.hp<=0)this.destroy(e);else if(e.type==='hazard')this.event('hazardHit',1,e.id);if(b.blast)this.explode(b.x,b.y,b.blast,b.damage*.6,e);if(!b.pierce)b.life=0;}}
  const boss=this.boss;if(boss?.vulnerable&&b.life>0&&!b.hit.has(boss)){const target=bossTarget(boss);if(Math.abs(b.x-target.x)<target.w/2+6&&Math.abs(b.y-target.y)<target.h/2+6){b.hit.add(boss);this.damageBoss(b.damage);if(!b.pierce)b.life=0;}}
  for(const eb of this.enemyBullets){if(eb.life>0&&b.life>0&&Math.abs(eb.x-b.x)<18&&Math.abs(eb.y-b.y)<16){eb.life=0;if(!b.pierce)b.life=0;this.particle(eb.x,eb.y,'#d38b31',5);this.event('DuarteCompanhia');}}}
- for(const b of this.enemyBullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(Math.abs(b.x-PLAYER_X)<24&&b.y>this.y-100&&b.y<this.y-5&&b.life>0){b.life=0;this.hurt(b.damage??20);}}
+ for(const b of this.enemyBullets){
+  const x0=b.x,y0=b.y;
+  b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
+  // Use the projectile dimensions when available, with a small fallback for
+  // legacy boss shots. Continuous collision prevents frame-rate-dependent misses.
+  const halfW=Math.max(2,(b.w??12)/2),halfH=Math.max(2,(b.h??12)/2);
+  if(b.life>-dt&&segmentHitsBox(x0,y0,b.x,b.y,
+    PLAYER_X-22-halfW,this.y-100-halfH,
+    PLAYER_X+22+halfW,this.y-7+halfH)){
+   b.life=0;this.hurt(b.damage??20);
+  }
+ }
  this.entities=this.entities.filter(e=>!e.dead&&e.x>-260&&e.x<1320);this.bullets=this.bullets.filter(b=>b.life>0&&b.x<1250&&b.y<700);this.enemyBullets=this.enemyBullets.filter(b=>b.life>0&&b.x>-100);this.updateParticles(dt);}
  updateParticles(dt){for(const p of this.particles){if(p.sourceEffect){advanceDestruction(p,dt);continue;}p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=550*dt;p.angle+=p.spin*dt;p.life-=dt;}this.particles=this.particles.filter(p=>p.life>0);}
 }
