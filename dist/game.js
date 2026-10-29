@@ -1,22 +1,24 @@
+import {UI_IMAGE_URLS} from './ui-assets.js';
+import {preloadUiImages} from './ui-preload.js';
 import {playLoadingIntro} from './loading-intro.js?v=two-second-cut';
 import {fitViewport,bindTouchControls} from './mobile.js';
 import {createSoundPlayer} from './sound-player.js';
 import {DEFAULT_CONTROLS,bindControl,keyLabel} from './controls.js';
-import {setMenuFont,menuLettering} from './menu-lettering.js?v=direct-menu-art';
+import {setMenuFont,menuLettering} from './menu-lettering.js?v=preloaded-menus';
 import {CarouselMotion} from './carousel-motion.js';
 import {SELECTION_ORDER,drawPlayerSelection} from './player-select.js';
 import {renderMobileShop} from './mobile-shop.js';
-import {bossTarget,enemyBulletRotation,healthBar} from './boss.js?v=direct-menu-art';
+import {bossTarget,enemyBulletRotation,healthBar} from './boss.js?v=preloaded-menus';
 import {effectSound,EFFECT_TEXTURES} from './destruction.js';
 import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
-import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=direct-menu-art';
+import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=preloaded-menus';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const KEY='sketchman-browser-v1';let save=freshSave(),storageOK=true;try{save=normalizeSave(JSON.parse(localStorage.getItem(KEY)));}catch{};
 try{const legacy=JSON.parse(localStorage.getItem('sketchman-keybinds'));if(legacy&&!JSON.parse(localStorage.getItem(KEY))?.settings?.controls){for(const action of ['jump','fire','pause']){const next=bindControl(save.settings.controls,action,legacy[action]);if(next)save.settings.controls=next;}persist();}}catch{}
 let state='loading',world=null,assets={},sprites={},missions=[],normalData={patterns:[]},last=0,anim=0,ended=false,returnState='menu',tipTime=0,tutorial=false,toastTimer,music=null,musicName='',pendingMission=[],muteForPause=false;
-let captureControl=null,controlsReturn=menu;
+let captureControl=null,controlsReturn=menu,uiImages=new Map();
 let selectionIndex=0,selectionMotion=new CarouselMotion();
 let pointerJump=new Set(),pointerFire=new Set(),keys=new Set();
 let disposeTouchControls=()=>{};
@@ -82,7 +84,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='DIRECT MENU ART';
+const VERSION_SPLASH='MENUS READY AT LOAD';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -205,6 +207,7 @@ function renderOriginalOptions(force=false){
 function prepareMenus(){
  prepareOptionsPanels();getMainMenuPaint();versionSplashImage=menuLettering(VERSION_SPLASH);
  for(const label of ['More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key'])menuLettering(label);
+ for(const code of [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c=>'Key'+c).concat([...'0123456789'].flatMap(c=>['Digit'+c,'Numpad'+c]),['Space','Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Backspace',...Object.values(save.settings.controls)]))menuLettering(keyLabel(code));
  // These source layers are now retired; the renderer only keeps finished artwork.
  for(const name of ['IMM_MainMenu_01','IMM_Options_01','IMM_Options_MusicON_01','IMM_Options_SoundON_01']){const source=assets[name];source.width=source.height=0;delete assets[name];}
 }
@@ -436,22 +439,13 @@ function frame(now){const dt=Math.max(0,Math.min((now-last)/1000||0,.1));last=no
  if(state==='playing'&&world){simulationRemainder+=dt;while(simulationRemainder>=1/60-1e-9&&state==='playing'){world.update(1/60);tipTime+=1/60;simulationRemainder-=1/60;if(world.dead&&world.deathTime>1.25)finishRun();}}else simulationRemainder=0;
  if(world&&['playing','paused','over'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}requestAnimationFrame(frame);
 }
-async function boot(){try{warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
+async function boot(){try{let atlasProgress=0,uiProgress=0;const progress=()=>{$('#progress').value=atlasProgress*.7+uiProgress*.3;};$('#loadStatus').textContent='Loading artwork and menu textures';const uiReady=preloadUiImages(UI_IMAGE_URLS,{onProgress:(done,total)=>{uiProgress=done/total*100;progress();}});uiReady.catch(()=>{});warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
  await Promise.all(Array.from({length:2},async()=>{while(queue.length){const sheet=queue.shift();await new Promise((resolve,reject)=>{
-  const im=new Image();im.onload=()=>{try{for(const n of sheet.names){const v=sprites[n].v,c=document.createElement('canvas');c.width=v[7];c.height=v[8];const context=c.getContext('2d');if(!context)throw new Error('Graphics memory unavailable');context.drawImage(im,v[1],v[2],v[7],v[8],0,0,v[7],v[8]);assets[n]=c;}loaded++;$('#progress').value=loaded/sheets.size*100;resolve();}catch(error){reject(error);}finally{im.onload=null;im.onerror=null;im.removeAttribute('src');}};
+  const im=new Image();im.onload=()=>{try{for(const n of sheet.names){const v=sprites[n].v,c=document.createElement('canvas');c.width=v[7];c.height=v[8];const context=c.getContext('2d');if(!context)throw new Error('Graphics memory unavailable');context.drawImage(im,v[1],v[2],v[7],v[8],0,0,v[7],v[8]);assets[n]=c;}loaded++;atlasProgress=loaded/sheets.size*100;progress();resolve();}catch(error){reject(error);}finally{im.onload=null;im.onerror=null;im.removeAttribute('src');}};
   im.onerror=()=>reject(new Error('Missing atlas: '+sheet.atlas));im.src=`assets/Graphics/${sheet.atlas}/${sheet.atlas}_${sheet.index+1}.png`;
- });}}));await Promise.all([...new Set([...EFFECT_TEXTURES,'ParExpStar_01','ParCoin01','gamePaper'])].map(n=>new Promise(resolve=>{const im=new Image();im.onload=()=>{assets[n]=im;resolve();};im.onerror=resolve;im.src=n==='gamePaper'?'assets/Graphics/LOC_Locations/SCN_Background.jpg':`assets/Graphics/Particles/${n}.png`;})));// Warm the browser's image cache while the loading screen is still visible.
- // These are the images used by the shop category screen, product rows and HUD.
- const shopArtNames=new Set(['IMM_BackButton_01','IMM_MenuBack_01','STR_Splitter_01','STR_BuyBtn_01','STR_BuyBtnON_01','STR_Buy_01','STR_Purchased_01','STR_HUD_01',
-  'STR_ICO_Coins2500_01','STR_ICO_Coins5000_01','STR_ICO_Coins15000_01','STR_ICO_Coins90000_01']);
- for(const item of ITEMS)if(item.icon)shopArtNames.add(item.icon);
- for(const weapon of WEAPONS)if(weapon.icon)shopArtNames.add(weapon.icon);
- const shopUrls=['assets/Graphics/Store/STR_Categories_Back_01.jpg',...Array.from(shopArtNames,n=>`shop-art/${n}.png`)];
- await Promise.all(shopUrls.map(url=>new Promise(resolve=>{
-  const im=new Image();im.onload=()=>{if(im.decode)im.decode().catch(()=>{}).then(resolve);else resolve();};im.onerror=()=>resolve();im.src=url;
-  if(im.complete)resolve();
- })));
- const menuFont=new Image();await new Promise((resolve,reject)=>{menuFont.onload=resolve;menuFont.onerror=reject;menuFont.src='assets/Graphics/Fonts/S1_Dialogs22_1.png';});setMenuFont(menuFont);prepareMenus();updateControlHint();await intro;$('#loading').remove();menu();last=performance.now();requestAnimationFrame(frame);}catch(e){$('#loadStatus').textContent='Could not load the game. Reload to try again.';console.error(e);}}
+ });}}));await Promise.all([...new Set([...EFFECT_TEXTURES,'ParExpStar_01','ParCoin01','gamePaper'])].map(n=>new Promise(resolve=>{const im=new Image();im.onload=()=>{assets[n]=im;resolve();};im.onerror=resolve;im.src=n==='gamePaper'?'assets/Graphics/LOC_Locations/SCN_Background.jpg':`assets/Graphics/Particles/${n}.png`;})));// Every UI image (including hover textures and HUD icons) is decoded before handoff.
+ uiImages=await uiReady;
+ const menuFont=uiImages.get('assets/Graphics/Fonts/S1_Dialogs22_1.png');setMenuFont(menuFont);prepareMenus();updateControlHint();$('#progress').value=100;$('#loadStatus').textContent='Ready';await intro;$('#loading').remove();menu();last=performance.now();requestAnimationFrame(frame);}catch(e){$('#loadStatus').textContent='Could not load the game. Reload to try again.';console.error(e);}}
 // Read-only diagnostic surface for verifying the running game.
 window.sketchman={get state(){return state;},get world(){return world;},get save(){return JSON.parse(JSON.stringify(save));}};
 boot();
