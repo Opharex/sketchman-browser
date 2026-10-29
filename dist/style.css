@@ -108,3 +108,19 @@
 .mobile-shop button:focus-visible{outline:3px solid var(--sketch-focus);outline-offset:-3px}
 .mobile-shop button:active:not(:disabled){filter:brightness(1.12)}
 @media (prefers-reduced-motion:reduce){#ui button{transition:none}}
+
+/* Main menu uses the original painted buttons: no offset blue hover rectangle. */
+#ui>.hit:not(.menu-art-button):hover,
+#ui>.hit:not(.menu-art-button):active{background:transparent;box-shadow:none;filter:none}
+#ui>.hit:not(.menu-art-button):focus-visible{outline:2px dashed #c53e36;outline-offset:-2px}
+#ui>.hit.menu-art-button:hover{background-color:transparent;box-shadow:none;filter:brightness(1.1)}
+/* Uniform original blue button artwork for options, pause and death menus. */
+.screen .actions .menu-art-button,.settings .actions .menu-art-button{
+ flex:1 1 130px;min-width:0;min-height:46px;height:clamp(46px,8vh,68px);
+}
+.screen .actions .menu-art-button>img,.settings .actions .menu-art-button>img{
+ max-width:90%;height:70%;max-height:52px;object-fit:contain;
+}
+.sketch-pause .actions{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.sketch-pause .actions .menu-art-button{flex:1 1 30%;max-width:230px}
+@media(max-width:580px){.sketch-pause .actions .menu-art-button{flex:1 1 42%;min-height:42px}}
