@@ -24,8 +24,41 @@ function toast(text){$('#toast').textContent=text;$('#toast').classList.add('sho
 const audioPools={};
 const soundNames={shoot:['S_0002_GunFire.wav','S_0003_ShotgunFire.wav','S_0004_SMGFire.wav','S_0005_Rpg2.wav','S_0038_ShootArrow.wav','S_0002_GunFire.wav','S_0044_Rocketv1.wav','S_0048_ShockwaveGun.wav','S_0049_Shockwave2.wav','S_0049_Shockwave2.wav'],coin:'S_0016_Coin2.wav',jump:'S_0011_Jump.wav',hit:'S_0009_DryThump.wav',explosion:'S_0015_Explosion2.wav',health:'S_0037_PowerupHP.wav',shield:'S_0047_Invincible.wav',revive:'S_0046_Resurect.wav',complete:'S_0040_MissionDone.wav',click:'S_0001_Click.wav'};
 function sfx(event,id=0){if(!save.settings.sound)return;let file=effectSound(event,id)||soundNames[event];if(Array.isArray(file))file=file[id]||file[0];if(!file)return;let pool=audioPools[file];if(!pool){pool=audioPools[file]=Array.from({length:event==='coin'?4:3},()=>new Audio(`assets/Sounds/Sfx/${file}`));}const a=pool.find(x=>x.paused)||pool[0];a.volume=save.settings.volume*.55;try{a.currentTime=0;a.play().catch(()=>{});}catch{}}
-function setMusic(name){if(musicName===name&&music){if(save.settings.music&&!muteForPause)music.play().catch(()=>{});return;}if(music)music.pause();musicName=name;music=new Audio(`assets/Sounds/Music/${name}`);music.loop=true;music.volume=save.settings.volume*.36;if(save.settings.music&&!muteForPause)music.play().catch(()=>{});}
-function updateMusic(){if(music){music.volume=save.settings.volume*.36;if(save.settings.music&&!muteForPause)music.play().catch(()=>{});else music.pause();}}
+// Preload menu music during the intro instead of fetching it after the menu appears.
+// Browsers can block audible autoplay until a user gesture; resume it on the first
+// interaction rather than silently leaving the menu without music.
+const musicCache=new Map();
+function musicTrack(name){
+ let track=musicCache.get(name);
+ if(!track){track=new Audio(`assets/Sounds/Music/${name}`);track.preload='auto';track.loop=true;track.load();musicCache.set(name,track);}
+ return track;
+}
+function warmMenuMusic(){musicTrack('M_0001_Menu.mp3');}
+function playMusic(){
+ if(!music||!save.settings.music||muteForPause)return;
+ music.volume=save.settings.volume*.36;
+ if(!music.paused)return;
+ const pending=music.play();
+ if(pending?.catch)pending.catch(()=>{}); // Autoplay permission may require a gesture.
+}
+function setMusic(name){
+ if(musicName===name&&music){playMusic();return;}
+ if(music)music.pause();
+ musicName=name;music=musicTrack(name);
+ if(name==='M_0001_Menu.mp3')try{music.currentTime=0;}catch{}
+ playMusic();
+}
+function updateMusic(){
+ if(!music)return;
+ music.volume=save.settings.volume*.36;
+ if(save.settings.music&&!muteForPause)playMusic();else music.pause();
+}
+// Capture the first genuine interaction, including taps and keyboard input,
+// to unlock music on browsers that restrict autoplay.
+function unlockMenuAudio(){if(state==='menu'||state==='settings'||state==='controls'||state==='scores'||state==='select')playMusic();}
+window.addEventListener('pointerdown',unlockMenuAudio,{capture:true});
+window.addEventListener('keydown',unlockMenuAudio,{capture:true});
+
 function img(n,x,y,w,h,alpha=1){const im=assets[n];if(!im)return;ctx.save();ctx.globalAlpha=alpha;ctx.drawImage(im,x,y,w??im.width,h??im.height);ctx.restore();}
 function sprite(n,x,y,scale=1,flip=false,alpha=1){const im=assets[n];if(!im)return;ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);if(flip)ctx.scale(-1,1);ctx.drawImage(im,-im.width*scale/2,-im.height*scale,im.width*scale,im.height*scale);ctx.restore();}
 function original(n,x,y,w,h){const s=sprites[n];if(!s)return;const v=s.v;img(n,x+v[11]*(w/v[5]),y+v[12]*(h/v[6]),v[7]*(w/v[5]),v[8]*(h/v[6]));}
@@ -42,7 +75,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='CONTROLS REINKED';
+const VERSION_SPLASH='MUSIC ON CUE';;
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage){const src=menuLettering(VERSION_SPLASH);if(src){versionSplashImage=new Image();versionSplashImage.src=src;}}
@@ -350,7 +383,7 @@ window.addEventListener('keydown',e=>{const k=e.code;
  if(e.repeat){if(state==='playing'&&Object.values(save.settings.controls).includes(k))e.preventDefault();return;}if(k==='Escape'||k===save.settings.controls.pause){if(state==='playing'){e.preventDefault();pause();}else if(state==='paused'){e.preventDefault();resume();}return;}
  if(state==='select'&&(k==='KeyA'||k==='KeyD')){e.preventDefault();if(!e.target.closest?.('.weapon-selection'))document.querySelector('.weapon-selection')?.dispatchEvent(new KeyboardEvent('keydown',{key:k==='KeyA'?'a':'d',bubbles:false}));return;}if(state!=='playing')return;const c=save.settings.controls;if(k!==c.jump&&k!==c.fire)return;e.preventDefault();keys.add(k);if(k===c.jump)world.jump();if(k===c.fire&&world.cooldown<=0)world.shoot();syncInput();});window.addEventListener('keyup',e=>{keys.delete(e.code);syncInput();});window.addEventListener('blur',()=>{if(state==='playing')pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause();});window.addEventListener('contextmenu',e=>{if(e.target.closest('#frame'))e.preventDefault();});if(matchMedia('(pointer: coarse)').matches)$('#hint').textContent='Touch controls · landscape recommended';const toggleFullscreen=async()=>{sfx('click');try{if(!document.fullscreenElement){await $('#app').requestFullscreen();if(window.screen.orientation?.lock)await window.screen.orientation.lock('landscape').catch(()=>{});}else await document.exitFullscreen();}catch{toast('Fullscreen unavailable in this browser. Try Add to Home Screen.');}};$('#fullscreen').onclick=toggleFullscreen;$('#mobileFullscreen').onclick=toggleFullscreen;
 function frame(now){const dt=Math.min((now-last)/1000||0,.05);last=now;anim+=dt;if(state==='playing'&&world){world.update(dt);tipTime+=dt;if(world.dead&&world.deathTime>1.25)finishRun();}if(world&&['playing','paused','over','shop'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}else{paper();notebook();}requestAnimationFrame(frame);}
-async function boot(){try{const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;await Promise.all([...sheets.values()].map(sheet=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{for(const n of sheet.names){const v=sprites[n].v,c=document.createElement('canvas');c.width=v[7];c.height=v[8];c.getContext('2d').drawImage(im,v[1],v[2],v[7],v[8],0,0,v[7],v[8]);assets[n]=c;}loaded++;$('#progress').value=loaded/sheets.size*100;resolve();};im.onerror=()=>reject(new Error('Missing atlas: '+sheet.atlas));im.src=`assets/Graphics/${sheet.atlas}/${sheet.atlas}_${sheet.index+1}.png`;})));await Promise.all([...new Set([...EFFECT_TEXTURES,'ParExpStar_01','ParCoin01','gamePaper'])].map(n=>new Promise(resolve=>{const im=new Image();im.onload=()=>{assets[n]=im;resolve();};im.onerror=resolve;im.src=n==='gamePaper'?'assets/Graphics/LOC_Locations/SCN_Background.jpg':`assets/Graphics/Particles/${n}.png`;})));// Warm the browser's image cache while the loading screen is still visible.
+async function boot(){try{warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;await Promise.all([...sheets.values()].map(sheet=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{for(const n of sheet.names){const v=sprites[n].v,c=document.createElement('canvas');c.width=v[7];c.height=v[8];c.getContext('2d').drawImage(im,v[1],v[2],v[7],v[8],0,0,v[7],v[8]);assets[n]=c;}loaded++;$('#progress').value=loaded/sheets.size*100;resolve();};im.onerror=()=>reject(new Error('Missing atlas: '+sheet.atlas));im.src=`assets/Graphics/${sheet.atlas}/${sheet.atlas}_${sheet.index+1}.png`;})));await Promise.all([...new Set([...EFFECT_TEXTURES,'ParExpStar_01','ParCoin01','gamePaper'])].map(n=>new Promise(resolve=>{const im=new Image();im.onload=()=>{assets[n]=im;resolve();};im.onerror=resolve;im.src=n==='gamePaper'?'assets/Graphics/LOC_Locations/SCN_Background.jpg':`assets/Graphics/Particles/${n}.png`;})));// Warm the browser's image cache while the loading screen is still visible.
  // These are the images used by the shop category screen, product rows and HUD.
  const shopArtNames=new Set(['STR_Splitter_01','STR_BuyBtn_01','STR_Buy_01','STR_Purchased_01','STR_HUD_01',
   'STR_ICO_Coins2500_01','STR_ICO_Coins5000_01','STR_ICO_Coins15000_01','STR_ICO_Coins90000_01']);
