@@ -124,3 +124,28 @@
 .sketch-pause .actions{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
 .sketch-pause .actions .menu-art-button{flex:1 1 30%;max-width:230px}
 @media(max-width:580px){.sketch-pause .actions .menu-art-button{flex:1 1 42%;min-height:42px}}
+
+/* Recovered APK Options overlay. Coordinates share the game's 960x640 stage. */
+.original-options{position:absolute;inset:0;container-type:inline-size}
+.original-options button{border:0;background:transparent;padding:0;cursor:pointer}
+.original-options-back{position:absolute;right:3%;top:3%;width:8%;height:12%;display:grid;place-items:center}
+.original-options-back img{width:100%;height:100%;object-fit:contain;pointer-events:none}
+.original-options-back:hover,.screen header button.screen-back-arrow:hover{filter:brightness(1.12)}
+.original-option-hit{position:absolute;top:22%;height:35%;border-radius:16px!important}
+.original-option-hit.options-music{left:28%;width:21%}
+.original-option-hit.options-sound{left:50%;width:22%}
+.original-option-hit:focus-visible{outline:3px dashed var(--sketch-focus);outline-offset:-4px}
+.original-options-extra{position:absolute;left:13.5%;right:13.5%;top:65.5%;bottom:3.5%;background:#e8f5f4e8;border:2px solid #2b7dad;border-radius:16px 9px 14px 11px;box-shadow:3px 4px 0 #123c5e22;display:flex;flex-direction:column;align-items:stretch;justify-content:space-evenly;gap:1%;padding:1% 2.5%}
+.original-options-extra-title{height:17%;display:flex;justify-content:center;align-items:center}
+.original-options-extra-title img{max-height:100%;max-width:65%;object-fit:contain}
+.original-options-extras-controls{display:flex;justify-content:space-around;align-items:center;gap:4%;min-height:25%}
+.original-options-extras-controls label{color:#153e6a;font-weight:bold;font-size:clamp(10px,1.75cqw,18px);display:flex;align-items:center;justify-content:center;gap:9px;white-space:nowrap;flex:1}
+.original-options-extras-controls input{accent-color:#227ec0}
+.original-options-extras-controls input[type=checkbox]{width:clamp(13px,2.1cqw,23px);height:clamp(13px,2.1cqw,23px)}
+.original-options-extras-controls input[type=range]{width:50%;min-width:55px}
+.original-options-extras-actions{display:flex;justify-content:center;align-items:center;gap:2%;flex:1}
+.original-options-extras-actions .menu-art-button{flex:1 1 0;min-width:0;min-height:0;height:clamp(30px,5.5cqw,55px)}
+.original-options-extras-actions .menu-art-button>img{height:70%;width:92%;max-width:92%;max-height:85%;object-fit:contain}
+.screen header button.screen-back-arrow{margin-left:auto;width:clamp(38px,5vw,60px);height:clamp(38px,5vw,60px);min-width:38px;min-height:38px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:grid;place-items:center}
+.screen-back-arrow img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
+@media(max-width:600px){.original-options-extra{left:8%;right:8%}.original-options-extras-controls{gap:1%}.original-options-extras-controls label{gap:4px}}
