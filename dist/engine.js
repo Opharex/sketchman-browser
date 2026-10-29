@@ -1,6 +1,6 @@
 import {normalizeControls,DEFAULT_CONTROLS} from './controls.js';
 import {PowerupDirector} from './powerups.js';
-import {createBoss,advanceBoss,bossTarget} from './boss.js';
+import {createBoss,advanceBoss,bossTarget} from './boss.js?v=iphone-boss-fix';
 import {emitDestruction,advanceDestruction,destructionGroup} from './destruction.js';
 import {configureJet,advanceJet,jetCanFire} from './jet-motion.js';
 import {NormalRunDirector} from './normal-run.js';
@@ -108,8 +108,8 @@ export class World{
  const pad=e.type==='coin'?20:8;const overlap=Math.abs(e.x-PLAYER_X)<e.w/2+22+pad&&e.y>this.y-121+pad&&e.y-e.h<this.y-7;
  if(overlap&&!e.dead){if(e.type==='coin'){e.dead=true;this.coins+=this.effects.doubleCoins?2:1;this.event('GotCoin');this.event('coin');}else if(e.type==='health'){e.dead=true;this.hp=Math.min(100,this.hp+(this.effects.fullHealth?100:35));this.event('GotHP');this.event('health');}else if(e.type==='shield'){e.dead=true;this.invincible=Math.max(this.invincible,this.effects.longShield?15:8);this.event('shield');}else{this.hurt(e.damage);if(e.type==='enemy'){this.destroy(e,false);continue;}if(e.type==='hazard'){this.event('SmashIntoStaticHazard',1,e.id);this.destroy(e,false);}}}
  if(e.x<PLAYER_X-50&&!e.passed&&!e.dead&&e.type==='hazard'){e.passed=true;if(Math.abs(this.y-(e.y-e.h))<125)this.event('NearMissStaticHazard',1,e.id);}}
- for(const b of this.bullets){b.life-=dt;if(b.homing){const target=this.boss||this.entities.find(e=>!e.dead&&e.hp>0&&e.x>b.x);if(target){b.vy+=(Math.sign(target.y-(target.h||120)/2-b.y)*520-b.vy)*dt*4;}}b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.id===4)b.vy+=250*dt;for(const e of this.entities){if(e.dead||e.dying||!e.hp||b.hit.has(e)||b.life<=0)continue;const radius=b.id===7?35:b.id===9?30:6;if(Math.abs(b.x-e.x)<e.w/2+radius&&b.y>e.y-e.h-radius&&b.y<e.y+radius){e.hp-=b.damage;e.healthShown=true;b.hit.add(e);this.particle(b.x,b.y,'#4d7693',4);if(e.hp<=0)this.destroy(e);else if(e.type==='hazard')this.event('hazardHit',1,e.id);if(b.blast)this.explode(b.x,b.y,b.blast,b.damage*.6,e);if(!b.pierce)b.life=0;}}
- const boss=this.boss;if(boss?.vulnerable&&b.life>0&&!b.hit.has(boss)){const target=bossTarget(boss);if(Math.abs(b.x-target.x)<target.w/2+6&&Math.abs(b.y-target.y)<target.h/2+6){b.hit.add(boss);this.damageBoss(b.damage);if(!b.pierce)b.life=0;}}
+ for(const b of this.bullets){const x0=b.x,y0=b.y;b.life-=dt;if(b.homing){const target=this.boss?bossTarget(this.boss):this.entities.find(e=>!e.dead&&e.hp>0&&e.x>b.x);if(target){const targetY=this.boss?target.y:target.y-(target.h||120)/2;b.vy+=(Math.sign(targetY-b.y)*520-b.vy)*dt*4;}}b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.id===4)b.vy+=250*dt;for(const e of this.entities){if(e.dead||e.dying||!e.hp||b.hit.has(e)||b.life<=0)continue;const radius=b.id===7?35:b.id===9?30:6;if(segmentHitsBox(x0,y0,b.x,b.y,e.x-e.w/2-radius,e.y-e.h-radius,e.x+e.w/2+radius,e.y+radius)){e.hp-=b.damage;e.healthShown=true;b.hit.add(e);this.particle(b.x,b.y,'#4d7693',4);if(e.hp<=0)this.destroy(e);else if(e.type==='hazard')this.event('hazardHit',1,e.id);if(b.blast)this.explode(b.x,b.y,b.blast,b.damage*.6,e);if(!b.pierce)b.life=0;}}
+ const boss=this.boss;if(boss?.vulnerable&&b.life>0&&!b.hit.has(boss)){const target=bossTarget(boss),radius=b.id===7?35:b.id===9?30:6;if(segmentHitsBox(x0,y0,b.x,b.y,target.x-target.w/2-radius,target.y-target.h/2-radius,target.x+target.w/2+radius,target.y+target.h/2+radius)){b.hit.add(boss);this.damageBoss(b.damage);if(!b.pierce)b.life=0;}}
  for(const eb of this.enemyBullets){if(eb.life>0&&b.life>0&&Math.abs(eb.x-b.x)<18&&Math.abs(eb.y-b.y)<16){eb.life=0;if(!b.pierce)b.life=0;this.particle(eb.x,eb.y,'#d38b31',5);this.event('DuarteCompanhia');}}}
  for(const b of this.enemyBullets){
   const x0=b.x,y0=b.y;
@@ -126,3 +126,4 @@ export class World{
  this.entities=this.entities.filter(e=>!e.dead&&e.x>-260&&e.x<1320);this.bullets=this.bullets.filter(b=>b.life>0&&b.x<1250&&b.y<700);this.enemyBullets=this.enemyBullets.filter(b=>b.life>0&&b.x>-100);this.updateParticles(dt);}
  updateParticles(dt){for(const p of this.particles){if(p.sourceEffect){advanceDestruction(p,dt);continue;}p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=550*dt;p.angle+=p.spin*dt;p.life-=dt;}this.particles=this.particles.filter(p=>p.life>0);}
 }
+

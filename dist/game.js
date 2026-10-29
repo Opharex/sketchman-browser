@@ -1,15 +1,17 @@
 import {playLoadingIntro} from './loading-intro.js?v=two-second-cut';
+import {fitViewport,bindTouchControls} from './mobile.js';
+import {createSoundPlayer} from './sound-player.js';
 import {DEFAULT_CONTROLS,bindControl,keyLabel} from './controls.js';
 import {setMenuFont,menuLettering} from './menu-lettering.js';
 import {CarouselMotion} from './carousel-motion.js';
 import {SELECTION_ORDER,drawPlayerSelection} from './player-select.js';
 import {renderMobileShop} from './mobile-shop.js';
-import {bossTarget,enemyBulletRotation,healthBar} from './boss.js';
+import {bossTarget,enemyBulletRotation,healthBar} from './boss.js?v=iphone-boss-fix';
 import {effectSound,EFFECT_TEXTURES} from './destruction.js';
 import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
-import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js';
+import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=iphone-boss-fix';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const KEY='sketchman-browser-v1';let save=freshSave(),storageOK=true;try{save=normalizeSave(JSON.parse(localStorage.getItem(KEY)));}catch{};
 try{const legacy=JSON.parse(localStorage.getItem('sketchman-keybinds'));if(legacy&&!JSON.parse(localStorage.getItem(KEY))?.settings?.controls){for(const action of ['jump','fire','pause']){const next=bindControl(save.settings.controls,action,legacy[action]);if(next)save.settings.controls=next;}persist();}}catch{}
@@ -17,21 +19,25 @@ let state='loading',world=null,assets={},sprites={},missions=[],normalData={patt
 let captureControl=null,controlsReturn=menu;
 let selectionIndex=0,selectionMotion=new CarouselMotion();
 let pointerJump=new Set(),pointerFire=new Set(),keys=new Set();
+let disposeTouchControls=()=>{};
+const resizeViewport=()=>fitViewport(document.documentElement);
+resizeViewport();window.addEventListener('resize',resizeViewport);
+window.visualViewport?.addEventListener('resize',resizeViewport);
 const ICON=n=>`icons/${n}.png`;
 const fmt=n=>Math.floor(n).toLocaleString();
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(save));}catch{storageOK=false;}}
 function toast(text){$('#toast').textContent=text;$('#toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),2600);}
-const audioPools={};
+const soundPlayer=createSoundPlayer();
 const soundNames={shoot:['S_0002_GunFire.wav','S_0003_ShotgunFire.wav','S_0004_SMGFire.wav','S_0005_Rpg2.wav','S_0038_ShootArrow.wav','S_0002_GunFire.wav','S_0044_Rocketv1.wav','S_0048_ShockwaveGun.wav','S_0049_Shockwave2.wav','S_0049_Shockwave2.wav'],coin:'S_0016_Coin2.wav',jump:'S_0011_Jump.wav',hit:'S_0009_DryThump.wav',explosion:'S_0015_Explosion2.wav',health:'S_0037_PowerupHP.wav',shield:'S_0047_Invincible.wav',revive:'S_0046_Resurect.wav',complete:'S_0040_MissionDone.wav',click:'S_0001_Click.wav'};
-function sfx(event,id=0){if(!save.settings.sound)return;let file=effectSound(event,id)||soundNames[event];if(Array.isArray(file))file=file[id]||file[0];if(!file)return;let pool=audioPools[file];if(!pool){pool=audioPools[file]=Array.from({length:event==='coin'?4:3},()=>new Audio(`assets/Sounds/Sfx/${file}`));}const a=pool.find(x=>x.paused)||pool[0];a.volume=save.settings.volume*.55;try{a.currentTime=0;a.play().catch(()=>{});}catch{}}
+function sfx(event,id=0){if(!save.settings.sound)return;let file=effectSound(event,id)||soundNames[event];if(Array.isArray(file))file=file[id]||file[0];if(file)soundPlayer.play(`assets/Sounds/Sfx/${file}`,save.settings.volume*.55);}
 // Preload menu music during the intro instead of fetching it after the menu appears.
 // Browsers can block audible autoplay until a user gesture; resume it on the first
 // interaction rather than silently leaving the menu without music.
-const musicCache=new Map();
+let streamingMusic=null,streamingName='';
 function musicTrack(name){
- let track=musicCache.get(name);
- if(!track){track=new Audio(`assets/Sounds/Music/${name}`);track.preload='auto';track.loop=true;track.load();musicCache.set(name,track);}
- return track;
+ if(!streamingMusic){streamingMusic=new Audio();streamingMusic.preload='auto';streamingMusic.loop=true;}
+ if(streamingName!==name){streamingName=name;streamingMusic.src=`assets/Sounds/Music/${name}`;streamingMusic.load();}
+ return streamingMusic;
 }
 function warmMenuMusic(){musicTrack('M_0001_Menu.mp3');}
 function playMusic(){
@@ -55,9 +61,10 @@ function updateMusic(){
 }
 // Capture the first genuine interaction, including taps and keyboard input,
 // to unlock music on browsers that restrict autoplay.
-function unlockMenuAudio(){if(state==='menu'||state==='settings'||state==='controls'||state==='scores'||state==='select')playMusic();}
+function unlockMenuAudio(){soundPlayer.unlock();playMusic();}
 window.addEventListener('pointerdown',unlockMenuAudio,{capture:true});
 window.addEventListener('keydown',unlockMenuAudio,{capture:true});
+window.addEventListener('touchend',unlockMenuAudio,{capture:true,passive:true});
 
 function img(n,x,y,w,h,alpha=1){const im=assets[n];if(!im)return;ctx.save();ctx.globalAlpha=alpha;ctx.drawImage(im,x,y,w??im.width,h??im.height);ctx.restore();}
 function sprite(n,x,y,scale=1,flip=false,alpha=1){const im=assets[n];if(!im)return;ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);if(flip)ctx.scale(-1,1);ctx.drawImage(im,-im.width*scale/2,-im.height*scale,im.width*scale,im.height*scale);ctx.restore();}
@@ -75,7 +82,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='MUSIC ON CUE';;
+const VERSION_SPLASH='IPHONE + BOSS FIX';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage){const src=menuLettering(VERSION_SPLASH);if(src){versionSplashImage=new Image();versionSplashImage.src=src;}}
@@ -279,22 +286,25 @@ function playSelect(initial=save.selected){
 function renderWeaponSelection(){paper();notebook();drawPlayerSelection({index:selectionIndex,position:selectionMotion.position,weapons:WEAPONS,save,t:anim,draw:drawFrame,text,number:coinNumber});}
 
 function attachHud(){
+ disposeTouchControls();
  ui.innerHTML='';
  const make=(label,n,cls)=>{const el=document.createElement('button');el.className=`hud-button ${cls}`;el.setAttribute('aria-label',label);el.innerHTML=`<img src="${ICON(n)}" alt="">`;ui.append(el);return el;};
  const j=make('Jump indicator','HUD_JumpButton_01','jump'),f=make('Fire indicator','HUD_FireButton_01','fire'),p=make('Pause','HUD_PauseBtn_01','pause');
  p.onclick=()=>{sfx('click');pause();};j.tabIndex=-1;f.tabIndex=-1;
  const surface=$('#frame'),indicators=()=>{j.classList.toggle('lit',pointerJump.size>0);f.classList.toggle('lit',pointerFire.size>0);};
+ const press=(id,left)=>{if(left){pointerJump.add(id);world.jump();world.jumpHeld=true;}else{pointerFire.add(id);if(world.cooldown<=0)world.shoot();}syncInput();indicators();};
+ const releaseId=id=>{pointerJump.delete(id);pointerFire.delete(id);syncInput();indicators();};
+ disposeTouchControls=bindTouchControls(surface,{active:e=>state==='playing'&&world&&!e.target.closest('.pause,#mobileFullscreen'),press,release:releaseId});
  surface.onpointerdown=e=>{
+  if(e.pointerType==='touch')return; // Touch Events above own the multi-finger path.
   if(state!=='playing'||!world||e.target.closest('.pause,#mobileFullscreen'))return;
   if(e.pointerType==='mouse'&&e.button!==0)return;
   e.preventDefault();
   const r=surface.getBoundingClientRect(),left=e.clientX<r.left+r.width/2;
   try{surface.setPointerCapture(e.pointerId);}catch{}
-  if(left){pointerJump.add(e.pointerId);world.jump();world.jumpHeld=true;}
-  else{pointerFire.add(e.pointerId);if(world.cooldown<=0)world.shoot();}
-  syncInput();indicators();
+  press(e.pointerId,left);
  };
- const release=e=>{pointerJump.delete(e.pointerId);pointerFire.delete(e.pointerId);syncInput();indicators();};
+ const release=e=>releaseId(e.pointerId);
  surface.onpointerup=release;surface.onpointercancel=release;surface.onlostpointercapture=release;
 }
 
@@ -381,9 +391,17 @@ function about(){state='about';const {c}=screen('A notebook full of trouble',{cl
 window.addEventListener('keydown',e=>{const k=e.code;
  if(state==='controls'&&captureControl){e.preventDefault();if(e.repeat)return;if(k==='Escape'){captureControl=null;controlsScreen(controlsReturn);return;}const next=bindControl(save.settings.controls,captureControl,k);if(next){save.settings.controls=next;captureControl=null;persist();updateControlHint();sfx('click');controlsScreen(controlsReturn);}return;}
  if(e.repeat){if(state==='playing'&&Object.values(save.settings.controls).includes(k))e.preventDefault();return;}if(k==='Escape'||k===save.settings.controls.pause){if(state==='playing'){e.preventDefault();pause();}else if(state==='paused'){e.preventDefault();resume();}return;}
- if(state==='select'&&(k==='KeyA'||k==='KeyD')){e.preventDefault();if(!e.target.closest?.('.weapon-selection'))document.querySelector('.weapon-selection')?.dispatchEvent(new KeyboardEvent('keydown',{key:k==='KeyA'?'a':'d',bubbles:false}));return;}if(state!=='playing')return;const c=save.settings.controls;if(k!==c.jump&&k!==c.fire)return;e.preventDefault();keys.add(k);if(k===c.jump)world.jump();if(k===c.fire&&world.cooldown<=0)world.shoot();syncInput();});window.addEventListener('keyup',e=>{keys.delete(e.code);syncInput();});window.addEventListener('blur',()=>{if(state==='playing')pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause();});window.addEventListener('contextmenu',e=>{if(e.target.closest('#frame'))e.preventDefault();});if(matchMedia('(pointer: coarse)').matches)$('#hint').textContent='Touch controls · landscape recommended';const toggleFullscreen=async()=>{sfx('click');try{if(!document.fullscreenElement){await $('#app').requestFullscreen();if(window.screen.orientation?.lock)await window.screen.orientation.lock('landscape').catch(()=>{});}else await document.exitFullscreen();}catch{toast('Fullscreen unavailable in this browser. Try Add to Home Screen.');}};$('#fullscreen').onclick=toggleFullscreen;$('#mobileFullscreen').onclick=toggleFullscreen;
-function frame(now){const dt=Math.min((now-last)/1000||0,.05);last=now;anim+=dt;if(state==='playing'&&world){world.update(dt);tipTime+=dt;if(world.dead&&world.deathTime>1.25)finishRun();}if(world&&['playing','paused','over','shop'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}else{paper();notebook();}requestAnimationFrame(frame);}
-async function boot(){try{warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;await Promise.all([...sheets.values()].map(sheet=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{for(const n of sheet.names){const v=sprites[n].v,c=document.createElement('canvas');c.width=v[7];c.height=v[8];c.getContext('2d').drawImage(im,v[1],v[2],v[7],v[8],0,0,v[7],v[8]);assets[n]=c;}loaded++;$('#progress').value=loaded/sheets.size*100;resolve();};im.onerror=()=>reject(new Error('Missing atlas: '+sheet.atlas));im.src=`assets/Graphics/${sheet.atlas}/${sheet.atlas}_${sheet.index+1}.png`;})));await Promise.all([...new Set([...EFFECT_TEXTURES,'ParExpStar_01','ParCoin01','gamePaper'])].map(n=>new Promise(resolve=>{const im=new Image();im.onload=()=>{assets[n]=im;resolve();};im.onerror=resolve;im.src=n==='gamePaper'?'assets/Graphics/LOC_Locations/SCN_Background.jpg':`assets/Graphics/Particles/${n}.png`;})));// Warm the browser's image cache while the loading screen is still visible.
+ if(state==='select'&&(k==='KeyA'||k==='KeyD')){e.preventDefault();if(!e.target.closest?.('.weapon-selection'))document.querySelector('.weapon-selection')?.dispatchEvent(new KeyboardEvent('keydown',{key:k==='KeyA'?'a':'d',bubbles:false}));return;}if(state!=='playing')return;const c=save.settings.controls;if(k!==c.jump&&k!==c.fire)return;e.preventDefault();keys.add(k);if(k===c.jump)world.jump();if(k===c.fire&&world.cooldown<=0)world.shoot();syncInput();});window.addEventListener('keyup',e=>{keys.delete(e.code);syncInput();});window.addEventListener('blur',()=>{if(state==='playing')pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause();});window.addEventListener('contextmenu',e=>{if(e.target.closest('#frame'))e.preventDefault();});if(matchMedia('(pointer: coarse)').matches)$('#hint').textContent='Touch controls · landscape recommended';const toggleFullscreen=async()=>{sfx('click');const app=$('#app');try{if(document.fullscreenElement){await document.exitFullscreen();}else if(app.requestFullscreen){await app.requestFullscreen();if(window.screen.orientation?.lock)await window.screen.orientation.lock('landscape').catch(()=>{});}else{app.classList.toggle('app-expanded');}}catch{app.classList.toggle('app-expanded');}resizeViewport();};$('#fullscreen').onclick=toggleFullscreen;$('#mobileFullscreen').onclick=toggleFullscreen;
+let simulationRemainder=0;
+function frame(now){const dt=Math.max(0,Math.min((now-last)/1000||0,.1));last=now;anim+=dt;
+ if(state==='playing'&&world){simulationRemainder+=dt;while(simulationRemainder>=1/60-1e-9&&state==='playing'){world.update(1/60);tipTime+=1/60;simulationRemainder-=1/60;if(world.dead&&world.deathTime>1.25)finishRun();}}else simulationRemainder=0;
+ if(world&&['playing','paused','over','shop'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}else{paper();notebook();}requestAnimationFrame(frame);
+}
+async function boot(){try{warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
+ await Promise.all(Array.from({length:2},async()=>{while(queue.length){const sheet=queue.shift();await new Promise((resolve,reject)=>{
+  const im=new Image();im.onload=()=>{try{for(const n of sheet.names){const v=sprites[n].v,c=document.createElement('canvas');c.width=v[7];c.height=v[8];const context=c.getContext('2d');if(!context)throw new Error('Graphics memory unavailable');context.drawImage(im,v[1],v[2],v[7],v[8],0,0,v[7],v[8]);assets[n]=c;}loaded++;$('#progress').value=loaded/sheets.size*100;resolve();}catch(error){reject(error);}finally{im.onload=null;im.onerror=null;im.removeAttribute('src');}};
+  im.onerror=()=>reject(new Error('Missing atlas: '+sheet.atlas));im.src=`assets/Graphics/${sheet.atlas}/${sheet.atlas}_${sheet.index+1}.png`;
+ });}}));await Promise.all([...new Set([...EFFECT_TEXTURES,'ParExpStar_01','ParCoin01','gamePaper'])].map(n=>new Promise(resolve=>{const im=new Image();im.onload=()=>{assets[n]=im;resolve();};im.onerror=resolve;im.src=n==='gamePaper'?'assets/Graphics/LOC_Locations/SCN_Background.jpg':`assets/Graphics/Particles/${n}.png`;})));// Warm the browser's image cache while the loading screen is still visible.
  // These are the images used by the shop category screen, product rows and HUD.
  const shopArtNames=new Set(['STR_Splitter_01','STR_BuyBtn_01','STR_Buy_01','STR_Purchased_01','STR_HUD_01',
   'STR_ICO_Coins2500_01','STR_ICO_Coins5000_01','STR_ICO_Coins15000_01','STR_ICO_Coins90000_01']);
@@ -398,3 +416,4 @@ async function boot(){try{warmMenuMusic();const intro=playLoadingIntro($('#loadi
 // Read-only diagnostic surface for verifying the running game.
 window.sketchman={get state(){return state;},get world(){return world;},get save(){return JSON.parse(JSON.stringify(save));}};
 boot();
+

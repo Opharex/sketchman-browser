@@ -7,7 +7,7 @@ test('boss passes from behind player to offscreen waypoint before catch-up and c
  const b=createBoss();let fires=0;assert.equal(b.x,-200);advanceBoss(b,1,428,()=>fires++);assert.equal(b.phase,'pass');assert.ok(b.x>150&&b.x<1200);assert.equal(b.y,382);assert.equal(b.vulnerable,false);
  let reachedPass=false;for(let i=0;i<1800&&!b.vulnerable;i++){advanceBoss(b,1/120,428,()=>fires++);if(b.phase==='catch'){reachedPass=true;assert.ok(b.x<=1200&&b.x>=720);}}
  assert.ok(reachedPass);assert.equal(b.x,720);assert.equal(b.y,412);assert.equal(b.phase,'fight');assert.equal(fires,0);
- assert.deepEqual(bossTarget(b),{x:620,y:312,w:70,h:141});
+ assert.deepEqual(bossTarget(b),{x:620,y:342,w:70,h:201});
 });
 test('first boss uses 1.75sec volleys and original projectile speeds, muzzle and height bands',()=>{
  const b=createBoss();b.phase='fight';b.vulnerable=true;b.x=720;b.y=412;const events=[];for(let i=0;i<420;i++)advanceBoss(b,1/60,428,shots=>events.push({time:b.t,shots}));

@@ -1,11 +1,13 @@
 const tintCache=new Map();
+const MAX_TINTS=48;
 function tinted(texture,color){
  const rgb=color.slice(0,3).map(v=>Math.round(Math.max(0,Math.min(1,v))*15)*17);
  if(rgb.every(v=>v===255))return texture;
  const key=`${texture.src}:${rgb.join(',')}`;
- if(tintCache.has(key))return tintCache.get(key);
+ if(tintCache.has(key)){const cached=tintCache.get(key);tintCache.delete(key);tintCache.set(key,cached);return cached;}
  const c=document.createElement('canvas');c.width=texture.width;c.height=texture.height;
- const cx=c.getContext('2d');cx.drawImage(texture,0,0);cx.globalCompositeOperation='multiply';cx.fillStyle=`rgb(${rgb.join(',')})`;cx.fillRect(0,0,c.width,c.height);cx.globalCompositeOperation='destination-in';cx.drawImage(texture,0,0);
+ const cx=c.getContext('2d');if(!cx){c.width=c.height=0;return texture;}cx.drawImage(texture,0,0);cx.globalCompositeOperation='multiply';cx.fillStyle=`rgb(${rgb.join(',')})`;cx.fillRect(0,0,c.width,c.height);cx.globalCompositeOperation='destination-in';cx.drawImage(texture,0,0);
+ if(tintCache.size>=MAX_TINTS){const oldest=tintCache.keys().next().value,canvas=tintCache.get(oldest);tintCache.delete(oldest);canvas.width=canvas.height=0;}
  tintCache.set(key,c);return c;
 }
 export function drawParticle(ctx,p,assets){
