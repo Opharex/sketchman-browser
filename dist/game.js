@@ -42,7 +42,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='BLUE HOVER INK';
+const VERSION_SPLASH='TRUE BLUE BUTTONS';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage){const src=menuLettering(VERSION_SPLASH);if(src){versionSplashImage=new Image();versionSplashImage.src=src;}}
@@ -53,9 +53,70 @@ function drawVersionSplash(){
  const height=width*versionSplashImage.naturalHeight/versionSplashImage.naturalWidth;
  ctx.save();ctx.translate(295,178);ctx.rotate(-.13);ctx.drawImage(versionSplashImage,-width/2,-height/2,width,height);ctx.restore();
 }
-const MAIN_MENU_HOVER_ART={Play:'IMM_PlayON_01',Shop:'IMM_ShopON_01',Scores:'IMM_ScoresON_01',Tutorial:'IMM_TutorialON_01',Options:'IMM_OptionsON_01'};
-let hoveredMainMenuButton=null;
-function renderMenu(){paper();ctx.save();ctx.beginPath();ctx.rect(0,0,960,640);ctx.rect(80,490,270,90);ctx.clip('evenodd');original('IMM_MainMenu_01',35,13,890,596);ctx.restore();if(hoveredMainMenuButton){const art=MAIN_MENU_HOVER_ART[hoveredMainMenuButton];const target=MAIN_MENU_BUTTONS.find(b=>b[0]===hoveredMainMenuButton);if(art&&target){const [, ,left,top,width,height]=target;original(art,left*9.6,top*6.4,width*9.6,height*6.4);}}drawVersionSplash();notebook();}
+// Source pixel rectangles measured from IMM_MainMenu_01 in the original APK.
+// The image is an 860 x 589 trimmed sprite, displayed at its native saved offset.
+const MENU_SPRITE_SCALE_X=890/968,MENU_SPRITE_SCALE_Y=596/648;
+const MENU_SPRITE_X=35+55*MENU_SPRITE_SCALE_X,MENU_SPRITE_Y=13+18*MENU_SPRITE_SCALE_Y;
+const MAIN_MENU_ART_RECTS={
+ Play:[271,309,317,111], Shop:[296,416,266,94], Scores:[576,435,272,73],
+ Tutorial:[302,511,256,69], Options:[582,508,272,73]
+};
+let hoveredMainMenuButton=null,mainMenuPaint=null;
+// Tint ONLY the blue ink from the existing sprite: no second button,
+// no different ON-state lettering and no graphic displacement.
+function tintMainMenuBlue(pixels,light){
+ const result=new ImageData(new Uint8ClampedArray(pixels.data),pixels.width,pixels.height);
+ const values=result.data;
+ for(let i=0;i<values.length;i+=4){
+  const r=values[i],g=values[i+1],b=values[i+2],a=values[i+3];
+  if(!a)continue;
+  const hi=Math.max(r,g,b),lo=Math.min(r,g,b),delta=hi-lo;
+  if(hi<1||delta/hi<.145||b<=r+18||b<=g+8)continue;
+  // Hue for blue-dominant pixels, in degrees. Red and white lettering remain untouched.
+  const hue=60*(4+(r-g)/delta);
+  if(hue<175||hue>260)continue;
+  const strength=Math.max(0,Math.min(1,(hi-42)/70));
+  const rr=light?Math.min(255,r+115):r*.15;
+  const gg=light?Math.min(255,g+92):g*.61;
+  const bb=light?Math.min(255,b+39):b*.87;
+  values[i]=r+(rr-r)*strength;
+  values[i+1]=g+(gg-g)*strength;
+  values[i+2]=b+(bb-b)*strength;
+ }
+ return result;
+}
+function getMainMenuPaint(){
+ if(mainMenuPaint)return mainMenuPaint;
+ const source=assets.IMM_MainMenu_01;
+ if(!source)return null;
+ const canvas=document.createElement('canvas');canvas.width=source.width;canvas.height=source.height;
+ const c=canvas.getContext('2d',{willReadFrequently:true});c.drawImage(source,0,0);
+ const src=source.getContext('2d',{willReadFrequently:true}),tiles={};
+ for(const [name,rect]of Object.entries(MAIN_MENU_ART_RECTS)){
+  const [x,y,w,h]=rect,pixels=src.getImageData(x,y,w,h);
+  const dark=name==='Play'?pixels:tintMainMenuBlue(pixels,false);
+  const light=name==='Play'?tintMainMenuBlue(pixels,true):pixels;
+  tiles[name]={rect,dark,light};
+  c.putImageData(dark,x,y);
+ }
+ mainMenuPaint={canvas,context:c,tiles,active:null};
+ return mainMenuPaint;
+}
+function renderMenu(){
+ paper();
+ ctx.save();ctx.beginPath();ctx.rect(0,0,960,640);ctx.rect(80,490,270,90);ctx.clip('evenodd');
+ const paint=getMainMenuPaint();
+ if(paint){
+  const next=MAIN_MENU_ART_RECTS[hoveredMainMenuButton]?hoveredMainMenuButton:null;
+  if(next!==paint.active){
+   if(paint.active){const t=paint.tiles[paint.active];paint.context.putImageData(t.dark,t.rect[0],t.rect[1]);}
+   if(next){const t=paint.tiles[next];paint.context.putImageData(t.light,t.rect[0],t.rect[1]);}
+   paint.active=next;
+  }
+  ctx.drawImage(paint.canvas,MENU_SPRITE_X,MENU_SPRITE_Y,paint.canvas.width*MENU_SPRITE_SCALE_X,paint.canvas.height*MENU_SPRITE_SCALE_Y);
+ }else original('IMM_MainMenu_01',35,13,890,596);
+ ctx.restore();drawVersionSplash();notebook();
+}
 let optionsHover=null;
 function renderOriginalOptions(){
  paper();
@@ -135,8 +196,36 @@ function renderWorld(){
 
 function button(label,fn,cls='ink'){const b=document.createElement('button');b.className=cls;b.textContent=label;b.onclick=()=>{sfx('click');fn();};return b;}
 function screen(title,{close=menu,balance=false}={}){ui.innerHTML='';const s=document.createElement('section');s.className='screen';const h=document.createElement('header');const t=document.createElement('h1');t.textContent=title;h.append(t);if(balance){const bal=document.createElement('span');bal.className='balance';bal.textContent=`◉ ${fmt(save.coins)}`;h.append(bal);}const b=button('',close,'screen-back-arrow');b.setAttribute('aria-label','Back');b.innerHTML='<img src="shop-art/IMM_BackButton_01.png" alt="">';h.append(b);s.append(h);const c=document.createElement('div');c.className='content';s.append(c);ui.append(s);return {s,c,h};}
-const MAIN_MENU_BUTTONS=[['Play',playSelect,36,51,27,12.5],['Shop',()=>shop('menu'),37,67.7,25.5,10.5],['Scores',scores,68,70.5,24,8.5],['Tutorial',()=>startRun(true),37,82.6,25.5,8.5],['Options',settings,68,82.6,24,8.5],['Controls',()=>controlsScreen(menu),10,79,23,9.5]];
-function menu(){if(world&&!ended)finishRun(true);state='menu';world=null;hoveredMainMenuButton=null;resetInput();ui.innerHTML='';setMusic('M_0001_Menu.mp3');for(const [label,fn,left,top,width,height]of MAIN_MENU_BUTTONS){const b=button(label,fn,'hit');b.setAttribute('aria-label',label);b.style.cssText=`left:${left}%;top:${top}%;width:${width}%;height:${height}%`;if(label==='Controls'){b.className='hit menu-art-button';b.textContent='';b.append(letterImage('Controls'));}else{b.onpointerenter=()=>hoveredMainMenuButton=label;b.onpointerleave=()=>{if(hoveredMainMenuButton===label)hoveredMainMenuButton=null;};b.onfocus=()=>hoveredMainMenuButton=label;b.onblur=()=>{if(hoveredMainMenuButton===label)hoveredMainMenuButton=null;};}ui.append(b);}if(!storageOK)toast('Browser storage is unavailable. Progress will last for this session.');}
+const MAIN_MENU_BUTTONS=[
+ ['Play',playSelect],['Shop',()=>shop('menu')],['Scores',scores],
+ ['Tutorial',()=>startRun(true)],['Options',settings],['Controls',()=>controlsScreen(menu)]
+];
+function menu(){
+ if(world&&!ended)finishRun(true);
+ state='menu';world=null;hoveredMainMenuButton=null;resetInput();
+ ui.innerHTML='';setMusic('M_0001_Menu.mp3');
+ for(const [label,fn]of MAIN_MENU_BUTTONS){
+  const b=button(label,fn,'hit');b.setAttribute('aria-label',label);
+  const rect=MAIN_MENU_ART_RECTS[label];
+  if(rect){
+   const [x,y,w,h]=rect;
+   // Hitbox and the painted button derive from the SAME source rectangle.
+   const left=MENU_SPRITE_X+x*MENU_SPRITE_SCALE_X;
+   const top=MENU_SPRITE_Y+y*MENU_SPRITE_SCALE_Y;
+   b.style.cssText=`left:${left/9.6}%;top:${top/6.4}%;width:${w*MENU_SPRITE_SCALE_X/9.6}%;height:${h*MENU_SPRITE_SCALE_Y/6.4}%`;
+   b.onpointerenter=()=>hoveredMainMenuButton=label;
+   b.onpointerleave=()=>{if(hoveredMainMenuButton===label)hoveredMainMenuButton=null;};
+   b.onfocus=()=>hoveredMainMenuButton=label;
+   b.onblur=()=>{if(hoveredMainMenuButton===label)hoveredMainMenuButton=null;};
+  }else{
+   // The extra browser-only Controls button has its own correctly sized art.
+   b.style.cssText='left:10%;top:79%;width:23%;height:9.5%';
+   b.className='hit menu-art-button';b.textContent='';b.append(letterImage('Controls'));
+  }
+  ui.append(b);
+ }
+ if(!storageOK)toast('Browser storage is unavailable. Progress will last for this session.');
+}
 function playSelect(initial=save.selected){
  state='select';resetInput();selectionIndex=Math.max(0,SELECTION_ORDER.indexOf(initial));selectionMotion=new CarouselMotion(selectionIndex);ui.innerHTML='';
  const panel=document.createElement('section');panel.className='weapon-selection';panel.setAttribute('aria-label','Choose your weapon');panel.tabIndex=0;ui.append(panel);
