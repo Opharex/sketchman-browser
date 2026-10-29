@@ -121,3 +121,25 @@ The user's original Sketchman 1.0.5 APK contains a dedicated `IMM_Options_01` sp
 The recreated Options screen now draws the real panel and ON overlays from the APK atlas, with transparent clickable regions aligned to the music/sound illustrations. Browser-only controls (volume, screen shake, key mapping, save export/import, and About) remain in a smaller extension below the original graphics. The original `IMM_BackButton_01` curved red arrow replaces the generic header X and appears in the upper-right on screens without an existing lower-left back control.
 
 Weapon carousel browsing via prev/next or keyboard arrows/A/D no longer triggers navigation sound effects. Selecting an owned weapon continues to emit the appropriate `shoot` effect before the run starts. This is a requested browser behavior adjustment, not a claim about source APK browsing audio.
+
+## Exact main-menu click boxes and in-place hover tint
+
+The `IMM_MainMenu_01` source artwork in the original 1.0.5 APK lives in `MMN_MainMenu_1.png`; its 860×589 trimmed sprite is located at atlas (0,49), with untrimmed dimensions 968×648 and saved trim offset (55,18). The browser displays the untrimmed coordinate space at (35,13) with target size 890×596.
+
+Measured blue-button pixel rectangles **in trimmed sprite coordinates**:
+
+| Button | x | y | width | height |
+| --- | ---: | ---: | ---: | ---: |
+| Play | 271 | 309 | 317 | 111 |
+| Shop | 296 | 416 | 266 | 94 |
+| Scores | 576 | 435 | 272 | 73 |
+| Tutorial | 302 | 511 | 256 | 69 |
+| Options | 582 | 508 | 272 | 73 |
+
+The HTML hitbox for each button is computed from exactly that sprite rectangle and the same render scale and offsets used to paint the sprite. Do **not** independently estimate percentages; it causes graphics-to-click misalignment.
+
+The original APK also supplies separate `IMM_PlayON_01`, `IMM_ShopON_01`, `IMM_ScoresON_01`, `IMM_TutorialON_01` and `IMM_OptionsON_01` sprites. Their lettering and sizing differ from the embedded labels; blindly rendering them above the menu caused the displaced duplicate button seen in the user's screenshots.
+
+The browser instead generates an offscreen copy of the **existing** menu artwork, recolors blue/cyan pixels in the five measured rectangles (dark by default, lighter on hover), and swaps those pixels at the exact source position. Red-and-white glyph pixels and the sprite alpha are preserved. It updates cached regions only when the hovered button changes. The browser-only Controls button uses the existing blank `STR_BuyBtn_01` and `STR_BuyBtnON_01` backgrounds beneath a separate unchanged sketchbook-font label.
+
+The user supplied hover screenshots demonstrating the previously misaligned duplicate; the updated pixel bounding boxes and preserved red/white pixels were checked against extracted APK artwork. Live browser playtesting remains necessary to verify the rendered result.
