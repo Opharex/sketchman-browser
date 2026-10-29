@@ -153,3 +153,8 @@
 /* Keep every notebook doodle and both title words visible during the short intro. */
 #loading .loading-film{display:block;width:100%;max-height:84%;height:auto;aspect-ratio:864/496;object-fit:contain;flex-shrink:1}
 #loading video.loading-film{background:#f1f0e5}
+
+/* Custom Controls entry follows the same dark-to-light blue hover behavior. */
+#ui>.hit.menu-art-button{background:#0869ba;border:3px solid #06417b;border-radius:32px;box-shadow:inset 0 -5px 0 #064a91}
+#ui>.hit.menu-art-button:hover,#ui>.hit.menu-art-button:focus-visible{background:#91e3fa;box-shadow:inset 0 -5px 0 #1a83bc;filter:none}
+#ui>.hit.menu-art-button>img{pointer-events:none}
