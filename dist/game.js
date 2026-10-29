@@ -42,7 +42,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='TRUE BLUE BUTTONS';
+const VERSION_SPLASH='CONTROLS REINKED';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage){const src=menuLettering(VERSION_SPLASH);if(src){versionSplashImage=new Image();versionSplashImage.src=src;}}
@@ -59,9 +59,11 @@ const MENU_SPRITE_SCALE_X=890/968,MENU_SPRITE_SCALE_Y=596/648;
 const MENU_SPRITE_X=35+55*MENU_SPRITE_SCALE_X,MENU_SPRITE_Y=13+18*MENU_SPRITE_SCALE_Y;
 const MAIN_MENU_ART_RECTS={
  Play:[271,309,317,111], Shop:[296,416,266,94], Scores:[576,435,272,73],
- Tutorial:[302,511,256,69], Options:[582,508,272,73]
+ Tutorial:[302,511,256,69], Options:[582,508,272,73], Controls:[80,510,256,69]
 };
-let hoveredMainMenuButton=null,mainMenuPaint=null;
+let hoveredMainMenuButton=null,mainMenuPaint=null,controlsArt=null;
+function getControlsArt(){if(controlsArt)return controlsArt;const src=assets.IMM_MainMenu_01;if(!src)return null;const [x,y,w,h]=MAIN_MENU_ART_RECTS.Shop;const cv=document.createElement('canvas');cv.width=256;cv.height=69;const c=cv.getContext('2d',{willReadFrequently:true});c.drawImage(src,x,y,w,h,0,0,256,69);const band=c.getImageData(38,10,1,49);for(let row=10;row<59;row++){const pixel=row-10;for(let col=52;col<204;col++){const p=(row*256+col)*4,q=pixel*4;const data=c.getImageData(38,row,1,1).data;c.fillStyle=`rgba(${data[0]},${data[1]},${data[2]},${data[3]/255})`;c.fillRect(col,row,1,1);}}const base=c.getImageData(0,0,256,69);const dark=tintMainMenuBlue(base,false),light=tintMainMenuBlue(base,true);const label=new Image();label.src=menuLettering('Controls');controlsArt={cv,c,dark,light,label};return controlsArt;}
+function drawControlsArt(){const art=getControlsArt();if(!art)return;const [x,y,w,h]=MAIN_MENU_ART_RECTS.Controls;art.c.putImageData(hoveredMainMenuButton==='Controls'?art.light:art.dark,0,0);const px=MENU_SPRITE_X+x*MENU_SPRITE_SCALE_X,py=MENU_SPRITE_Y+y*MENU_SPRITE_SCALE_Y,pw=w*MENU_SPRITE_SCALE_X,ph=h*MENU_SPRITE_SCALE_Y;ctx.drawImage(art.cv,px,py,pw,ph);if(art.label.complete&&art.label.naturalWidth){const tw=pw*.73,th=Math.min(ph*.62,tw*art.label.naturalHeight/art.label.naturalWidth);ctx.drawImage(art.label,px+(pw-tw)/2,py+(ph-th)/2,tw,th);}}
 // Tint ONLY the blue ink from the existing sprite: no second button,
 // no different ON-state lettering and no graphic displacement.
 function tintMainMenuBlue(pixels,light){
@@ -93,6 +95,7 @@ function getMainMenuPaint(){
  const c=canvas.getContext('2d',{willReadFrequently:true});c.drawImage(source,0,0);
  const src=source.getContext('2d',{willReadFrequently:true}),tiles={};
  for(const [name,rect]of Object.entries(MAIN_MENU_ART_RECTS)){
+  if(name==='Controls')continue;
   const [x,y,w,h]=rect,pixels=src.getImageData(x,y,w,h);
   const dark=name==='Play'?pixels:tintMainMenuBlue(pixels,false);
   const light=name==='Play'?tintMainMenuBlue(pixels,true):pixels;
@@ -107,7 +110,7 @@ function renderMenu(){
  ctx.save();ctx.beginPath();ctx.rect(0,0,960,640);ctx.rect(80,490,270,90);ctx.clip('evenodd');
  const paint=getMainMenuPaint();
  if(paint){
-  const next=MAIN_MENU_ART_RECTS[hoveredMainMenuButton]?hoveredMainMenuButton:null;
+  const next=paint.tiles[hoveredMainMenuButton]?hoveredMainMenuButton:null;
   if(next!==paint.active){
    if(paint.active){const t=paint.tiles[paint.active];paint.context.putImageData(t.dark,t.rect[0],t.rect[1]);}
    if(next){const t=paint.tiles[next];paint.context.putImageData(t.light,t.rect[0],t.rect[1]);}
@@ -115,7 +118,7 @@ function renderMenu(){
   }
   ctx.drawImage(paint.canvas,MENU_SPRITE_X,MENU_SPRITE_Y,paint.canvas.width*MENU_SPRITE_SCALE_X,paint.canvas.height*MENU_SPRITE_SCALE_Y);
  }else original('IMM_MainMenu_01',35,13,890,596);
- ctx.restore();drawVersionSplash();notebook();
+ ctx.restore();drawControlsArt();drawVersionSplash();notebook();
 }
 let optionsHover=null;
 function renderOriginalOptions(){
@@ -217,10 +220,6 @@ function menu(){
    b.onpointerleave=()=>{if(hoveredMainMenuButton===label)hoveredMainMenuButton=null;};
    b.onfocus=()=>hoveredMainMenuButton=label;
    b.onblur=()=>{if(hoveredMainMenuButton===label)hoveredMainMenuButton=null;};
-  }else{
-   // The extra browser-only Controls button has its own correctly sized art.
-   b.style.cssText='left:10%;top:79%;width:23%;height:9.5%';
-   b.className='hit menu-art-button';b.textContent='';b.append(letterImage('Controls'));
   }
   ui.append(b);
  }
