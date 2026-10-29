@@ -6,12 +6,12 @@ import {setMenuFont,menuLettering} from './menu-lettering.js';
 import {CarouselMotion} from './carousel-motion.js';
 import {SELECTION_ORDER,drawPlayerSelection} from './player-select.js';
 import {renderMobileShop} from './mobile-shop.js';
-import {bossTarget,enemyBulletRotation,healthBar} from './boss.js?v=boss-jump-restored';
+import {bossTarget,enemyBulletRotation,healthBar} from './boss.js?v=controls-proportions';
 import {effectSound,EFFECT_TEXTURES} from './destruction.js';
 import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
-import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=boss-jump-restored';
+import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=controls-proportions';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const KEY='sketchman-browser-v1';let save=freshSave(),storageOK=true;try{save=normalizeSave(JSON.parse(localStorage.getItem(KEY)));}catch{};
 try{const legacy=JSON.parse(localStorage.getItem('sketchman-keybinds'));if(legacy&&!JSON.parse(localStorage.getItem(KEY))?.settings?.controls){for(const action of ['jump','fire','pause']){const next=bindControl(save.settings.controls,action,legacy[action]);if(next)save.settings.controls=next;}persist();}}catch{}
@@ -82,7 +82,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='JUMP TO HIT THE BOSS';
+const VERSION_SPLASH='CONTROLS IN PROPORTION';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage){const src=menuLettering(VERSION_SPLASH);if(src){versionSplashImage=new Image();versionSplashImage.src=src;}}
@@ -99,11 +99,31 @@ const MENU_SPRITE_SCALE_X=890/968,MENU_SPRITE_SCALE_Y=596/648;
 const MENU_SPRITE_X=35+55*MENU_SPRITE_SCALE_X,MENU_SPRITE_Y=13+18*MENU_SPRITE_SCALE_Y;
 const MAIN_MENU_ART_RECTS={
  Play:[271,309,317,111], Shop:[296,416,266,94], Scores:[576,435,272,73],
- Tutorial:[302,511,256,69], Options:[582,508,272,73], Controls:[80,510,256,69]
+ Tutorial:[302,511,256,69], Options:[582,508,272,73], Controls:[6,508,272,73]
 };
 let hoveredMainMenuButton=null,mainMenuPaint=null,controlsArt=null;
-function getControlsArt(){if(controlsArt)return controlsArt;const src=assets.IMM_MainMenu_01;if(!src)return null;const [x,y,w,h]=MAIN_MENU_ART_RECTS.Shop;const cv=document.createElement('canvas');cv.width=256;cv.height=69;const c=cv.getContext('2d',{willReadFrequently:true});c.drawImage(src,x,y,w,h,0,0,256,69);const base=c.getImageData(0,0,256,69);const d=base.data;for(let row=10;row<59;row++){const q=(row*256+38)*4;for(let col=52;col<204;col++){const p=(row*256+col)*4;for(let ch=0;ch<4;ch++)d[p+ch]=d[q+ch];}}const dark=tintMainMenuBlue(base,false),light=tintMainMenuBlue(base,true);const label=new Image();label.src=menuLettering('Controls');controlsArt={cv,c,dark,light,label};return controlsArt;}
-function drawControlsArt(){const art=getControlsArt();if(!art)return;const [x,y,w,h]=MAIN_MENU_ART_RECTS.Controls;art.c.putImageData(hoveredMainMenuButton==='Controls'?art.light:art.dark,0,0);const px=MENU_SPRITE_X+x*MENU_SPRITE_SCALE_X,py=MENU_SPRITE_Y+y*MENU_SPRITE_SCALE_Y,pw=w*MENU_SPRITE_SCALE_X,ph=h*MENU_SPRITE_SCALE_Y;ctx.drawImage(art.cv,px,py,pw,ph);if(art.label.complete&&art.label.naturalWidth){const tw=pw*.73,th=Math.min(ph*.62,tw*art.label.naturalHeight/art.label.naturalWidth);ctx.drawImage(art.label,px+(pw-tw)/2,py+(ph-th)/2,tw,th);}}
+function getControlsArt(){
+ if(controlsArt)return controlsArt;const src=assets.IMM_MainMenu_01;if(!src)return null;
+ // Reuse the right-hand button at its native proportions, rather than flattening Shop.
+ const [x,y,w,h]=MAIN_MENU_ART_RECTS.Options;
+ const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+ const c=cv.getContext('2d',{willReadFrequently:true});c.drawImage(src,x,y,w,h,0,0,w,h);
+ const base=c.getImageData(0,0,w,h),d=base.data;
+ for(let row=10;row<59;row++){const q=(row*w+38)*4;for(let col=52;col<224;col++){const p=(row*w+col)*4;for(let ch=0;ch<4;ch++)d[p+ch]=d[q+ch];}}
+ const dark=tintMainMenuBlue(base,false),light=tintMainMenuBlue(base,true);
+ const label=new Image();label.src=menuLettering('Controls');controlsArt={cv,c,dark,light,label};return controlsArt;
+}
+function drawControlsArt(){
+ const art=getControlsArt();if(!art)return;const [x,y,w,h]=MAIN_MENU_ART_RECTS.Controls;
+ art.c.putImageData(hoveredMainMenuButton==='Controls'?art.light:art.dark,0,0);
+ const px=MENU_SPRITE_X+x*MENU_SPRITE_SCALE_X,py=MENU_SPRITE_Y+y*MENU_SPRITE_SCALE_Y,pw=w*MENU_SPRITE_SCALE_X,ph=h*MENU_SPRITE_SCALE_Y;
+ ctx.drawImage(art.cv,px,py,pw,ph);
+ if(art.label.complete&&art.label.naturalWidth){
+  const scale=Math.min(pw*.82/art.label.naturalWidth,ph*.88/art.label.naturalHeight);
+  const tw=art.label.naturalWidth*scale,th=art.label.naturalHeight*scale;
+  ctx.drawImage(art.label,px+(pw-tw)/2,py+(ph-th)/2,tw,th);
+ }
+}
 // Tint ONLY the blue ink from the existing sprite: no second button,
 // no different ON-state lettering and no graphic displacement.
 function tintMainMenuBlue(pixels,light){
