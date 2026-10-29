@@ -1,7 +1,7 @@
-// Short opening made from the user's notebook keyframes and interpolated frames.
-export const INTRO_FPS=30;
-export const INTRO_DURATION_MS=1900;
-export const INTRO_SOURCE='sketchman_new_opening.mp4';
+// 2-second cut of the user's supplied AI artwork video. Repeated holds removed without regenerating the drawings.
+export const INTRO_FPS=24;
+export const INTRO_DURATION_MS=2000;
+export const INTRO_SOURCE='sketchman_uploaded_intro_trimmed.mp4';
 export function playLoadingIntro(root){
  const film=document.createElement('video');
  film.className='loading-film';
