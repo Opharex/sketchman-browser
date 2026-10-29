@@ -158,3 +158,28 @@
 #ui>.hit.menu-art-button{background:#0869ba;border:3px solid #06417b;border-radius:32px;box-shadow:inset 0 -5px 0 #064a91}
 #ui>.hit.menu-art-button:hover,#ui>.hit.menu-art-button:focus-visible{background:#91e3fa;box-shadow:inset 0 -5px 0 #1a83bc;filter:none}
 #ui>.hit.menu-art-button>img{pointer-events:none}
+
+/* Main menu hit areas match the original sprite's measured blue-button pixels.
+   The canvas repaints only those pixels; HTML never draws an overlay highlight. */
+#ui>.hit:not(.menu-art-button),
+#ui>.hit:not(.menu-art-button):hover,
+#ui>.hit:not(.menu-art-button):active{
+ background:transparent!important;box-shadow:none!important;
+ border:0!important;border-radius:999px;filter:none!important;
+}
+#ui>.hit:not(.menu-art-button):focus-visible{
+ outline:2px solid #fff5d0;outline-offset:-2px;border-radius:999px;
+}
+/* Controls is browser-only, so use two original blank blue button assets.
+   Its separate sketchbook-font label is identical in both states. */
+#ui>.hit.menu-art-button{
+ background:transparent url('shop-art/STR_BuyBtn_01.png') center/100% 100% no-repeat!important;
+ border:0!important;border-radius:999px!important;
+ box-shadow:none!important;filter:none!important;
+}
+#ui>.hit.menu-art-button:hover,
+#ui>.hit.menu-art-button:focus-visible{
+ background-image:url('shop-art/STR_BuyBtnON_01.png')!important;
+ background-color:transparent!important;box-shadow:none!important;filter:none!important;
+}
+#ui>.hit.menu-art-button:active{transform:none!important}
