@@ -42,7 +42,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='TWO SECOND DRAW';
+const VERSION_SPLASH='BLUE HOVER INK';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage){const src=menuLettering(VERSION_SPLASH);if(src){versionSplashImage=new Image();versionSplashImage.src=src;}}
@@ -53,7 +53,9 @@ function drawVersionSplash(){
  const height=width*versionSplashImage.naturalHeight/versionSplashImage.naturalWidth;
  ctx.save();ctx.translate(295,178);ctx.rotate(-.13);ctx.drawImage(versionSplashImage,-width/2,-height/2,width,height);ctx.restore();
 }
-function renderMenu(){paper();ctx.save();ctx.beginPath();ctx.rect(0,0,960,640);ctx.rect(80,490,270,90);ctx.clip('evenodd');original('IMM_MainMenu_01',35,13,890,596);ctx.restore();drawVersionSplash();notebook();}
+const MAIN_MENU_HOVER_ART={Play:'IMM_PlayON_01',Shop:'IMM_ShopON_01',Scores:'IMM_ScoresON_01',Tutorial:'IMM_TutorialON_01',Options:'IMM_OptionsON_01'};
+let hoveredMainMenuButton=null;
+function renderMenu(){paper();ctx.save();ctx.beginPath();ctx.rect(0,0,960,640);ctx.rect(80,490,270,90);ctx.clip('evenodd');original('IMM_MainMenu_01',35,13,890,596);ctx.restore();if(hoveredMainMenuButton){const art=MAIN_MENU_HOVER_ART[hoveredMainMenuButton];const target=MAIN_MENU_BUTTONS.find(b=>b[0]===hoveredMainMenuButton);if(art&&target){const [, ,left,top,width,height]=target;original(art,left*9.6,top*6.4,width*9.6,height*6.4);}}drawVersionSplash();notebook();}
 let optionsHover=null;
 function renderOriginalOptions(){
  paper();
@@ -133,7 +135,8 @@ function renderWorld(){
 
 function button(label,fn,cls='ink'){const b=document.createElement('button');b.className=cls;b.textContent=label;b.onclick=()=>{sfx('click');fn();};return b;}
 function screen(title,{close=menu,balance=false}={}){ui.innerHTML='';const s=document.createElement('section');s.className='screen';const h=document.createElement('header');const t=document.createElement('h1');t.textContent=title;h.append(t);if(balance){const bal=document.createElement('span');bal.className='balance';bal.textContent=`◉ ${fmt(save.coins)}`;h.append(bal);}const b=button('',close,'screen-back-arrow');b.setAttribute('aria-label','Back');b.innerHTML='<img src="shop-art/IMM_BackButton_01.png" alt="">';h.append(b);s.append(h);const c=document.createElement('div');c.className='content';s.append(c);ui.append(s);return {s,c,h};}
-function menu(){if(world&&!ended)finishRun(true);state='menu';world=null;resetInput();ui.innerHTML='';setMusic('M_0001_Menu.mp3');const spots=[['Play',playSelect,36,51,27,12.5],['Shop',()=>shop('menu'),37,67.7,25.5,10.5],['Scores',scores,68,70.5,24,8.5],['Tutorial',()=>startRun(true),37,82.6,25.5,8.5],['Options',settings,68,82.6,24,8.5],['Controls',()=>controlsScreen(menu),10,79,23,9.5]];for(const [label,fn,left,top,width,height]of spots){const b=button(label,fn,'hit');b.setAttribute('aria-label',label);b.style.cssText=`left:${left}%;top:${top}%;width:${width}%;height:${height}%`;if(label==='Controls'){b.className='hit menu-art-button';b.textContent='';b.append(letterImage('Controls'));}ui.append(b);}if(!storageOK)toast('Browser storage is unavailable. Progress will last for this session.');}
+const MAIN_MENU_BUTTONS=[['Play',playSelect,36,51,27,12.5],['Shop',()=>shop('menu'),37,67.7,25.5,10.5],['Scores',scores,68,70.5,24,8.5],['Tutorial',()=>startRun(true),37,82.6,25.5,8.5],['Options',settings,68,82.6,24,8.5],['Controls',()=>controlsScreen(menu),10,79,23,9.5]];
+function menu(){if(world&&!ended)finishRun(true);state='menu';world=null;hoveredMainMenuButton=null;resetInput();ui.innerHTML='';setMusic('M_0001_Menu.mp3');for(const [label,fn,left,top,width,height]of MAIN_MENU_BUTTONS){const b=button(label,fn,'hit');b.setAttribute('aria-label',label);b.style.cssText=`left:${left}%;top:${top}%;width:${width}%;height:${height}%`;if(label==='Controls'){b.className='hit menu-art-button';b.textContent='';b.append(letterImage('Controls'));}else{b.onpointerenter=()=>hoveredMainMenuButton=label;b.onpointerleave=()=>{if(hoveredMainMenuButton===label)hoveredMainMenuButton=null;};b.onfocus=()=>hoveredMainMenuButton=label;b.onblur=()=>{if(hoveredMainMenuButton===label)hoveredMainMenuButton=null;};}ui.append(b);}if(!storageOK)toast('Browser storage is unavailable. Progress will last for this session.');}
 function playSelect(initial=save.selected){
  state='select';resetInput();selectionIndex=Math.max(0,SELECTION_ORDER.indexOf(initial));selectionMotion=new CarouselMotion(selectionIndex);ui.innerHTML='';
  const panel=document.createElement('section');panel.className='weapon-selection';panel.setAttribute('aria-label','Choose your weapon');panel.tabIndex=0;ui.append(panel);
