@@ -42,13 +42,16 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='JEEP JAM FIX';
+const VERSION_SPLASH='FOREHEAD POP';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage){const src=menuLettering(VERSION_SPLASH);if(src){versionSplashImage=new Image();versionSplashImage.src=src;}}
  if(!versionSplashImage?.complete||!versionSplashImage.naturalWidth)return;
- const width=Math.min(330,versionSplashImage.naturalWidth*.65),height=width*versionSplashImage.naturalHeight/versionSplashImage.naturalWidth;
- ctx.save();ctx.translate(760,510);ctx.rotate(-.105);ctx.drawImage(versionSplashImage,-width/2,-height/2,width,height);ctx.restore();
+ // Pulse at a relaxed pace without ever covering the main-menu buttons.
+ const pulse=1+.11*Math.sin(anim*3.3);
+ const width=Math.min(280,versionSplashImage.naturalWidth*.56)*pulse;
+ const height=width*versionSplashImage.naturalHeight/versionSplashImage.naturalWidth;
+ ctx.save();ctx.translate(295,178);ctx.rotate(-.13);ctx.drawImage(versionSplashImage,-width/2,-height/2,width,height);ctx.restore();
 }
 function renderMenu(){paper();ctx.save();ctx.beginPath();ctx.rect(0,0,960,640);ctx.rect(80,490,270,90);ctx.clip('evenodd');original('IMM_MainMenu_01',35,13,890,596);ctx.restore();drawVersionSplash();notebook();}
 function drawFrame(n,x,y,scale=1,flip=false,alpha=1,rotation=0){const im=assets[n],meta=sprites[n];if(!im||!meta)return;const p=framePlacement(meta,0,0,scale);ctx.save();ctx.translate(x,y);ctx.rotate(rotation);if(flip)ctx.scale(-1,1);ctx.globalAlpha=alpha;ctx.drawImage(im,p.x,p.y,p.w,p.h);ctx.restore();}
