@@ -1,4 +1,4 @@
-import {playLoadingIntro} from './loading-intro.js';
+import {playLoadingIntro} from './loading-intro.js?v=two-second-cut';
 import {DEFAULT_CONTROLS,bindControl,keyLabel} from './controls.js';
 import {setMenuFont,menuLettering} from './menu-lettering.js';
 import {CarouselMotion} from './carousel-motion.js';
