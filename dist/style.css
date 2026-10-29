@@ -91,3 +91,20 @@
 .paused .sketch-pause .ink.primary{background:#159adb;color:#fff;text-shadow:1px 1px #1d5077}
 .weapon-selection{touch-action:none}
 @media(max-width:600px){.paused .sketch-pause{inset:7% 15%;padding:3%}.paused .sketch-pause .actions{gap:5px}}
+
+/* Shared interaction language for the recreated sketchbook UI. */
+:root{--sketch-ink:#173f66;--sketch-blue:#2078b8;--sketch-paper:#f4f2df;--sketch-focus:#d0473b}
+#ui button{transition:filter .12s ease,background-color .12s ease,box-shadow .12s ease}
+#ui button:focus-visible{outline:3px solid var(--sketch-focus);outline-offset:2px}
+#ui button:disabled{cursor:default}
+.screen,.controls-screen{color:var(--sketch-ink)}
+.screen header button{min-width:36px;min-height:36px;border-radius:8px;display:grid;place-items:center}
+.screen header button:hover{background:#9ac8df50}
+.screen .ink,.controls-screen .menu-art-button{min-height:36px}
+.screen .ink:focus-visible,.controls-screen .menu-art-button:focus-visible{outline-offset:3px}
+#ui>.hit{border-radius:12px}
+#ui>.hit:hover{background:#74c9fc20;box-shadow:inset 0 0 0 2px #2b83bd55}
+#ui>.hit:active{background:#74c9fc40}
+.mobile-shop button:focus-visible{outline:3px solid var(--sketch-focus);outline-offset:-3px}
+.mobile-shop button:active:not(:disabled){filter:brightness(1.12)}
+@media (prefers-reduced-motion:reduce){#ui button{transition:none}}
