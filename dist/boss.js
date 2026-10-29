@@ -21,9 +21,8 @@ export function advanceBoss(b,dt,playerY,fire){
   }
  }
 }
-// Include the driver's lower body/jeep, so every grounded weapon can hit.
-// The old head-only box ended at y=388.5; the pistol muzzle is at y=399.
-export function bossTarget(b){return {x:b.x-100,y:b.y-70,w:70,h:201};}
+// Only the driver is vulnerable. Grounded shots pass underneath; jump to aim at him.
+export function bossTarget(b){return {x:b.x-100,y:b.y-100,w:70,h:141};}
 export function enemyBulletRotation(b){return Math.atan2(b.vy,b.vx);}
 export function healthBar(e){if(e.dead||e.dying||!e.healthShown||e.hp<=0)return null;return {x:e.x,y:e.y-e.h-18,fraction:Math.max(0,Math.min(1,e.hp/e.maxHp))};}
 

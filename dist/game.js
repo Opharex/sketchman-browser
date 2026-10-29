@@ -6,12 +6,12 @@ import {setMenuFont,menuLettering} from './menu-lettering.js';
 import {CarouselMotion} from './carousel-motion.js';
 import {SELECTION_ORDER,drawPlayerSelection} from './player-select.js';
 import {renderMobileShop} from './mobile-shop.js';
-import {bossTarget,enemyBulletRotation,healthBar} from './boss.js?v=iphone-boss-fix';
+import {bossTarget,enemyBulletRotation,healthBar} from './boss.js?v=boss-jump-restored';
 import {effectSound,EFFECT_TEXTURES} from './destruction.js';
 import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
-import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=iphone-boss-fix';
+import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=boss-jump-restored';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const KEY='sketchman-browser-v1';let save=freshSave(),storageOK=true;try{save=normalizeSave(JSON.parse(localStorage.getItem(KEY)));}catch{};
 try{const legacy=JSON.parse(localStorage.getItem('sketchman-keybinds'));if(legacy&&!JSON.parse(localStorage.getItem(KEY))?.settings?.controls){for(const action of ['jump','fire','pause']){const next=bindControl(save.settings.controls,action,legacy[action]);if(next)save.settings.controls=next;}persist();}}catch{}
@@ -82,7 +82,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='IPHONE + BOSS FIX';
+const VERSION_SPLASH='JUMP TO HIT THE BOSS';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage){const src=menuLettering(VERSION_SPLASH);if(src){versionSplashImage=new Image();versionSplashImage.src=src;}}

@@ -1,6 +1,6 @@
 import {normalizeControls,DEFAULT_CONTROLS} from './controls.js';
 import {PowerupDirector} from './powerups.js';
-import {createBoss,advanceBoss,bossTarget} from './boss.js?v=iphone-boss-fix';
+import {createBoss,advanceBoss,bossTarget} from './boss.js?v=boss-jump-restored';
 import {emitDestruction,advanceDestruction,destructionGroup} from './destruction.js';
 import {configureJet,advanceJet,jetCanFire} from './jet-motion.js';
 import {NormalRunDirector} from './normal-run.js';
