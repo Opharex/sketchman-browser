@@ -59,18 +59,19 @@
 .selection-status{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 #frame:has(.weapon-selection) #mobileFullscreen{display:none}
 /* Controls use original blue button art and the APK's hand-drawn glyph atlas. */
+.menu-lettering{width:auto;height:auto;flex:none;touch-action:auto}
 .menu-art-button{border:0!important;box-shadow:none!important;background:transparent url('shop-art/STR_BuyBtn_01.png') center/100% 100% no-repeat!important;position:relative;color:transparent!important;display:inline-flex;align-items:center;justify-content:center;padding:0!important;min-width:100px;min-height:42px;cursor:pointer}
-.menu-art-button>img{display:block;max-width:88%;width:auto;height:80%;max-height:56px;pointer-events:none;object-fit:contain}
+.menu-art-button>:is(img,.menu-lettering){display:block;max-width:88%;width:auto;height:80%;max-height:56px;pointer-events:none;object-fit:contain}
 .menu-art-button:hover{filter:brightness(1.12)}.menu-art-button:active{transform:translateY(2px)}
-#ui>.hit.menu-art-button{position:absolute;min-width:0;min-height:0}.hit.menu-art-button>img{width:90%;height:85%;max-height:none}
+#ui>.hit.menu-art-button{position:absolute;min-width:0;min-height:0}.hit.menu-art-button>:is(img,.menu-lettering){width:90%;height:85%;max-height:none}
 .controls-screen{position:absolute;inset:4% 12%;display:flex;flex-direction:column;align-items:center;padding:2% 5%;background:#edf0db url('shop-art/IMM_MenuBack_01.png') center/cover;border:7px solid #2078b8;border-radius:22px 15px 26px 18px;box-shadow:0 0 0 3px #fffde9,0 0 0 6px #153e69,7px 8px 0 #173f6940;container-type:inline-size;overflow:auto}
-.controls-screen h1{margin:0;height:12%;min-height:48px;display:flex;justify-content:center;align-items:center}.controls-screen h1 img{height:100%;max-width:100%;object-fit:contain}
-.controls-help{height:8%;margin:0 0 2%;display:flex;justify-content:center}.controls-help img{height:100%;max-width:100%;object-fit:contain}
+.controls-screen h1{margin:0;height:12%;min-height:48px;display:flex;justify-content:center;align-items:center}.controls-screen h1 :is(img,.menu-lettering){height:100%;max-width:100%;object-fit:contain}
+.controls-help{height:8%;margin:0 0 2%;display:flex;justify-content:center}.controls-help :is(img,.menu-lettering){height:100%;max-width:100%;object-fit:contain}
 .control-rows{width:100%;display:flex;flex-direction:column;gap:8px;flex:1;justify-content:center}
-.control-row{display:flex;align-items:center;justify-content:space-between;gap:12px;height:25%;min-height:45px}.control-action{width:36%;height:80%;display:flex;align-items:center}.control-action img{max-width:100%;height:100%;object-fit:contain}
-.control-key{width:58%;height:100%;min-height:45px}.control-key img{max-height:none;height:85%}.binding-listening{filter:brightness(1.2);outline:3px dashed #a42e32;outline-offset:2px}
+.control-row{display:flex;align-items:center;justify-content:space-between;gap:12px;height:25%;min-height:45px}.control-action{width:36%;height:80%;display:flex;align-items:center}.control-action :is(img,.menu-lettering){max-width:100%;height:100%;object-fit:contain}
+.control-key{width:58%;height:100%;min-height:45px}.control-key :is(img,.menu-lettering){max-height:none;height:85%}.binding-listening{filter:brightness(1.2);outline:3px dashed #a42e32;outline-offset:2px}
 .control-message{font-size:.66em;color:#214e74;text-align:center;min-height:1.4em;margin:1.5% 0}
-.controls-actions{display:flex;gap:5%;justify-content:space-between;width:100%;height:13%;min-height:45px}.controls-actions button{width:43%;height:100%;min-width:0}.controls-actions img{max-height:none;height:85%}
+.controls-actions{display:flex;gap:5%;justify-content:space-between;width:100%;height:13%;min-height:45px}.controls-actions button{width:43%;height:100%;min-width:0}.controls-actions :is(img,.menu-lettering){max-height:none;height:85%}
 #frame:has(.controls-screen) #mobileFullscreen{display:none}
 @media(max-height:500px){.controls-screen{inset:4% 15%;padding:1% 5%;border-width:4px}.controls-screen h1{min-height:30px}.control-row,.control-key{min-height:30px}.controls-actions{min-height:32px}.controls-help{margin-bottom:0}.control-rows{gap:3px}.control-message{font-size:.6em}}
 
@@ -118,7 +119,7 @@
 .screen .actions .menu-art-button,.settings .actions .menu-art-button{
  flex:1 1 130px;min-width:0;min-height:46px;height:clamp(46px,8vh,68px);
 }
-.screen .actions .menu-art-button>img,.settings .actions .menu-art-button>img{
+.screen .actions .menu-art-button>:is(img,.menu-lettering),.settings .actions .menu-art-button>:is(img,.menu-lettering){
  max-width:90%;height:70%;max-height:52px;object-fit:contain;
 }
 .sketch-pause .actions{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
@@ -137,7 +138,7 @@
 .original-option-hit:focus-visible{outline:3px dashed var(--sketch-focus);outline-offset:-4px}
 .original-options-extra{position:absolute;left:13.5%;right:13.5%;top:65.5%;bottom:3.5%;background:#e8f5f4e8;border:2px solid #2b7dad;border-radius:16px 9px 14px 11px;box-shadow:3px 4px 0 #123c5e22;display:flex;flex-direction:column;align-items:stretch;justify-content:space-evenly;gap:1%;padding:1% 2.5%}
 .original-options-extra-title{height:17%;display:flex;justify-content:center;align-items:center}
-.original-options-extra-title img{max-height:100%;max-width:65%;object-fit:contain}
+.original-options-extra-title :is(img,.menu-lettering){max-height:100%;max-width:65%;object-fit:contain}
 .original-options-extras-controls{display:flex;justify-content:space-around;align-items:center;gap:4%;min-height:25%}
 .original-options-extras-controls label{color:#153e6a;font-weight:bold;font-size:clamp(10px,1.75cqw,18px);display:flex;align-items:center;justify-content:center;gap:9px;white-space:nowrap;flex:1}
 .original-options-extras-controls input{accent-color:#227ec0}
@@ -145,7 +146,7 @@
 .original-options-extras-controls input[type=range]{width:50%;min-width:55px}
 .original-options-extras-actions{display:flex;justify-content:center;align-items:center;gap:2%;flex:1}
 .original-options-extras-actions .menu-art-button{flex:1 1 0;min-width:0;min-height:0;height:clamp(30px,5.5cqw,55px)}
-.original-options-extras-actions .menu-art-button>img{height:70%;width:92%;max-width:92%;max-height:85%;object-fit:contain}
+.original-options-extras-actions .menu-art-button>:is(img,.menu-lettering){height:70%;width:92%;max-width:92%;max-height:85%;object-fit:contain}
 .screen header button.screen-back-arrow{margin-left:auto;width:clamp(38px,5vw,60px);height:clamp(38px,5vw,60px);min-width:38px;min-height:38px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:grid;place-items:center}
 .screen-back-arrow img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
 @media(max-width:600px){.original-options-extra{left:8%;right:8%}.original-options-extras-controls{gap:1%}.original-options-extras-controls label{gap:4px}}
@@ -157,7 +158,7 @@
 /* Custom Controls entry follows the same dark-to-light blue hover behavior. */
 #ui>.hit.menu-art-button{background:#0869ba;border:3px solid #06417b;border-radius:32px;box-shadow:inset 0 -5px 0 #064a91}
 #ui>.hit.menu-art-button:hover,#ui>.hit.menu-art-button:focus-visible{background:#91e3fa;box-shadow:inset 0 -5px 0 #1a83bc;filter:none}
-#ui>.hit.menu-art-button>img{pointer-events:none}
+#ui>.hit.menu-art-button>:is(img,.menu-lettering){pointer-events:none}
 
 /* Main menu hit areas match the original sprite's measured blue-button pixels.
    The canvas repaints only those pixels; HTML never draws an overlay highlight. */

@@ -2,16 +2,16 @@ import {playLoadingIntro} from './loading-intro.js?v=two-second-cut';
 import {fitViewport,bindTouchControls} from './mobile.js';
 import {createSoundPlayer} from './sound-player.js';
 import {DEFAULT_CONTROLS,bindControl,keyLabel} from './controls.js';
-import {setMenuFont,menuLettering} from './menu-lettering.js';
+import {setMenuFont,menuLettering} from './menu-lettering.js?v=direct-menu-art';
 import {CarouselMotion} from './carousel-motion.js';
 import {SELECTION_ORDER,drawPlayerSelection} from './player-select.js';
 import {renderMobileShop} from './mobile-shop.js';
-import {bossTarget,enemyBulletRotation,healthBar} from './boss.js?v=controls-proportions';
+import {bossTarget,enemyBulletRotation,healthBar} from './boss.js?v=direct-menu-art';
 import {effectSound,EFFECT_TEXTURES} from './destruction.js';
 import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
-import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=controls-proportions';
+import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=direct-menu-art';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const KEY='sketchman-browser-v1';let save=freshSave(),storageOK=true;try{save=normalizeSave(JSON.parse(localStorage.getItem(KEY)));}catch{};
 try{const legacy=JSON.parse(localStorage.getItem('sketchman-keybinds'));if(legacy&&!JSON.parse(localStorage.getItem(KEY))?.settings?.controls){for(const action of ['jump','fire','pause']){const next=bindControl(save.settings.controls,action,legacy[action]);if(next)save.settings.controls=next;}persist();}}catch{}
@@ -82,15 +82,15 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='CONTROLS IN PROPORTION';
+const VERSION_SPLASH='DIRECT MENU ART';
 let versionSplashImage=null;
 function drawVersionSplash(){
- if(!versionSplashImage){const src=menuLettering(VERSION_SPLASH);if(src){versionSplashImage=new Image();versionSplashImage.src=src;}}
- if(!versionSplashImage?.complete||!versionSplashImage.naturalWidth)return;
+ if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
+ if(!versionSplashImage?.width)return;
  // Pulse at a relaxed pace without ever covering the main-menu buttons.
  const pulse=1+.11*Math.sin(anim*3.3);
- const width=Math.min(280,versionSplashImage.naturalWidth*.56)*pulse;
- const height=width*versionSplashImage.naturalHeight/versionSplashImage.naturalWidth;
+ const width=Math.min(280,versionSplashImage.width*.56)*pulse;
+ const height=width*versionSplashImage.height/versionSplashImage.width;
  ctx.save();ctx.translate(295,178);ctx.rotate(-.13);ctx.drawImage(versionSplashImage,-width/2,-height/2,width,height);ctx.restore();
 }
 // Source pixel rectangles measured from IMM_MainMenu_01 in the original APK.
@@ -111,21 +111,9 @@ function getControlsArt(){
  const base=c.getImageData(0,0,w,h),d=base.data;
  for(let row=10;row<59;row++){const q=(row*w+38)*4;for(let col=52;col<224;col++){const p=(row*w+col)*4;for(let ch=0;ch<4;ch++)d[p+ch]=d[q+ch];}}
  const dark=tintMainMenuBlue(base,false),light=tintMainMenuBlue(base,true);
- const label=new Image();label.src=menuLettering('Controls');controlsArt={cv,c,dark,light,label};return controlsArt;
+ const label=menuLettering('Controls');controlsArt={cv,c,dark,light,label};return controlsArt;
 }
-function drawControlsArt(){
- const art=getControlsArt();if(!art)return;const [x,y,w,h]=MAIN_MENU_ART_RECTS.Controls;
- art.c.putImageData(hoveredMainMenuButton==='Controls'?art.light:art.dark,0,0);
- const px=MENU_SPRITE_X+x*MENU_SPRITE_SCALE_X,py=MENU_SPRITE_Y+y*MENU_SPRITE_SCALE_Y,pw=w*MENU_SPRITE_SCALE_X,ph=h*MENU_SPRITE_SCALE_Y;
- ctx.drawImage(art.cv,px,py,pw,ph);
- if(art.label.complete&&art.label.naturalWidth){
-  const scale=Math.min(pw*.82/art.label.naturalWidth,ph*.88/art.label.naturalHeight);
-  const tw=art.label.naturalWidth*scale,th=art.label.naturalHeight*scale;
-  ctx.drawImage(art.label,px+(pw-tw)/2,py+(ph-th)/2,tw,th);
- }
-}
-// Tint ONLY the blue ink from the existing sprite: no second button,
-// no different ON-state lettering and no graphic displacement.
+
 function tintMainMenuBlue(pixels,light){
  const result=new ImageData(new Uint8ClampedArray(pixels.data),pixels.width,pixels.height);
  const values=result.data;
@@ -162,13 +150,21 @@ function getMainMenuPaint(){
   tiles[name]={rect,dark,light};
   c.putImageData(dark,x,y);
  }
+ // Remove the retired More Games artwork before adding the final Controls tile.
+ c.clearRect(0,501,288,88);
+ const art=getControlsArt(),[x,y,w,h]=MAIN_MENU_ART_RECTS.Controls;
+ const scale=Math.min(w*.82/art.label.width,h*.88/art.label.height);
+ const tw=art.label.width*scale,th=art.label.height*scale;
+ const controlTile={rect:[x,y,w,h]};
+ for(const state of ['dark','light']){art.c.putImageData(art[state],0,0);art.c.drawImage(art.label,(w-tw)/2,(h-th)/2,tw,th);controlTile[state]=art.c.getImageData(0,0,w,h);}
+ tiles.Controls=controlTile;c.putImageData(controlTile.dark,x,y);
  mainMenuPaint={canvas,context:c,tiles,active:null};
  return mainMenuPaint;
 }
 function renderMenu(){
  paper();
- ctx.save();ctx.beginPath();ctx.rect(0,0,960,640);ctx.rect(80,490,270,90);ctx.clip('evenodd');
- const paint=getMainMenuPaint();
+ ctx.save();
+ const paint=mainMenuPaint;
  if(paint){
   const next=paint.tiles[hoveredMainMenuButton]?hoveredMainMenuButton:null;
   if(next!==paint.active){
@@ -177,17 +173,40 @@ function renderMenu(){
    paint.active=next;
   }
   ctx.drawImage(paint.canvas,MENU_SPRITE_X,MENU_SPRITE_Y,paint.canvas.width*MENU_SPRITE_SCALE_X,paint.canvas.height*MENU_SPRITE_SCALE_Y);
- }else original('IMM_MainMenu_01',35,13,890,596);
- ctx.restore();drawControlsArt();drawVersionSplash();notebook();
+ }
+ ctx.restore();drawVersionSplash();notebook();
 }
-let optionsHover=null;
-function renderOriginalOptions(){
- paper();
- // Original APK OPTIONS panel with its own illustrated title, Music and Sound icons.
- original('IMM_Options_01',220,64,520,344);
- if(save.settings.music||optionsHover==='music')original('IMM_Options_MusicON_01',286,294,154,63);
- if(save.settings.sound||optionsHover==='sound')original('IMM_Options_SoundON_01',500,294,175,66);
- notebook();
+let optionsHover=null,optionsPanels=[],optionsPainted=-1;
+function prepareOptionsPanels(){
+ const make=()=>{const c=document.createElement('canvas');c.width=520;c.height=344;return c;};
+ const panel=make(),p=panel.getContext('2d'),base=assets.IMM_Options_01;
+ p.drawImage(base,2,2,516,340);
+ const rects=[[66,230,154,63,'IMM_Options_MusicON_01'],[280,230,175,66,'IMM_Options_SoundON_01']];
+ // Separate the two labels from the panel, so ON never draws over a baked OFF label.
+ const off=rects.map(([x,y,w,h])=>p.getImageData(x,y,w,h));
+ const clean=p.getImageData(0,0,520,344),data=clean.data;
+ for(const [x,y,w,h]of rects)for(let row=y;row<y+h;row++)for(let col=x;col<x+w;col++){
+  const dest=(row*520+col)*4,source=(row*520+244)*4;
+  for(let ch=0;ch<4;ch++)data[dest+ch]=data[source+ch];
+ }
+ p.putImageData(clean,0,0);
+ for(let state=0;state<4;state++){
+  const frame=make(),c=frame.getContext('2d');c.drawImage(panel,0,0);
+  rects.forEach(([x,y,w,h,name],i)=>{if(state&(1<<i))c.drawImage(assets[name],x+2,y+2,w-4,h-4);else c.putImageData(off[i],x,y);});
+  optionsPanels.push(frame);
+ }
+ panel.width=panel.height=0;
+}
+function renderOriginalOptions(force=false){
+ const state=(save.settings.music||optionsHover==='music'?1:0)|(save.settings.sound||optionsHover==='sound'?2:0);
+ if(!force&&optionsPainted===state)return;optionsPainted=state;paper();
+ ctx.drawImage(optionsPanels[state],220,64);notebook();
+}
+function prepareMenus(){
+ prepareOptionsPanels();getMainMenuPaint();versionSplashImage=menuLettering(VERSION_SPLASH);
+ for(const label of ['More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key'])menuLettering(label);
+ // These source layers are now retired; the renderer only keeps finished artwork.
+ for(const name of ['IMM_MainMenu_01','IMM_Options_01','IMM_Options_MusicON_01','IMM_Options_SoundON_01']){const source=assets[name];source.width=source.height=0;delete assets[name];}
 }
 function drawFrame(n,x,y,scale=1,flip=false,alpha=1,rotation=0){const im=assets[n],meta=sprites[n];if(!im||!meta)return;const p=framePlacement(meta,0,0,scale);ctx.save();ctx.translate(x,y);ctx.rotate(rotation);if(flip)ctx.scale(-1,1);ctx.globalAlpha=alpha;ctx.drawImage(im,p.x,p.y,p.w,p.h);ctx.restore();}
 function drawHealthBar(x,y,fraction){
@@ -258,14 +277,14 @@ function renderWorld(){
 }
 
 function button(label,fn,cls='ink'){const b=document.createElement('button');b.className=cls;b.textContent=label;b.onclick=()=>{sfx('click');fn();};return b;}
-function screen(title,{close=menu,balance=false}={}){ui.innerHTML='';const s=document.createElement('section');s.className='screen';const h=document.createElement('header');const t=document.createElement('h1');t.textContent=title;h.append(t);if(balance){const bal=document.createElement('span');bal.className='balance';bal.textContent=`◉ ${fmt(save.coins)}`;h.append(bal);}const b=button('',close,'screen-back-arrow');b.setAttribute('aria-label','Back');b.innerHTML='<img src="shop-art/IMM_BackButton_01.png" alt="">';h.append(b);s.append(h);const c=document.createElement('div');c.className='content';s.append(c);ui.append(s);return {s,c,h};}
+function screen(title,{close=menu,balance=false}={}){if(state==='over'&&world)renderWorld();else{paper();notebook();}ui.innerHTML='';const s=document.createElement('section');s.className='screen';const h=document.createElement('header');const t=document.createElement('h1');t.textContent=title;h.append(t);if(balance){const bal=document.createElement('span');bal.className='balance';bal.textContent=`◉ ${fmt(save.coins)}`;h.append(bal);}const b=button('',close,'screen-back-arrow');b.setAttribute('aria-label','Back');b.innerHTML='<img src="shop-art/IMM_BackButton_01.png" alt="">';h.append(b);s.append(h);const c=document.createElement('div');c.className='content';s.append(c);ui.append(s);return {s,c,h};}
 const MAIN_MENU_BUTTONS=[
  ['Play',playSelect],['Shop',()=>shop('menu')],['Scores',scores],
  ['Tutorial',()=>startRun(true)],['Options',settings],['Controls',()=>controlsScreen(menu)]
 ];
 function menu(){
  if(world&&!ended)finishRun(true);
- state='menu';world=null;hoveredMainMenuButton=null;resetInput();
+ state='menu';world=null;hoveredMainMenuButton=null;resetInput();renderMenu();
  ui.innerHTML='';setMusic('M_0001_Menu.mp3');
  for(const [label,fn]of MAIN_MENU_BUTTONS){
   const b=button(label,fn,'hit');b.setAttribute('aria-label',label);
@@ -371,11 +390,11 @@ function shop(from=returnState){
 function equip(id){const group=id.startsWith('head')?'head':id.toLowerCase().includes('armor')?'armor':id.toLowerCase().includes('power')?'power':null;if(group)save.equipped=save.equipped.filter(x=>!(group==='head'?x.startsWith('head'):group==='armor'?x.toLowerCase().includes('armor'):x.toLowerCase().includes('power')));save.equipped.push(id);}
 function missionScreen(){state='missions';const {s,c}=screen('Your missions',{close:playSelect,balance:true});advanceMissions();for(const m of activeMissions()){const p=Math.min(m.target,save.missionProgress[m.id]||0);const row=document.createElement('div');row.className='mission';row.innerHTML=`<img src="${ICON(m.group===0?'CON_Coin_01':m.group===1?'CHR_Run_01':'STR_ICO_WeaponA_01')}" alt=""><div><b>${m.text}</b><small>${p} / ${m.target}${m.cumulative?' · Across runs':' · In one run'}</small><progress value="${p}" max="${m.target}"></progress></div><span class="reward">+${fmt(m.reward)} ◉</span>`;c.append(row);}const note=document.createElement('p');note.className='note';note.textContent=`${save.completed.length} / 120 missions completed. Three active missions — collecting, distance, and combat. Complete each to reveal the next.`;c.append(note);const a=document.createElement('div');a.className='actions';a.append(button('Let’s run →',()=>startRun(),'ink primary'));s.append(a);}
 function scores(){state='scores';const {c}=screen('Personal bests');if(!save.scores.length){c.innerHTML='<div class="empty">Your notebook is still blank.<br><br>Go for a run and set your first record.</div>';c.append(button('Play →',playSelect,'ink primary'));return;}c.innerHTML=`<div class="stats"><div><strong>${fmt(save.best)}m</strong><span>BEST DISTANCE</span></div><div><strong>${save.runs}</strong><span>RUNS</span></div><div><strong>${save.completed.length}</strong><span>MISSIONS</span></div></div><table class="scores"><thead><tr><th>#</th><th>Distance</th><th>Coins</th><th>Weapon</th><th>Date</th></tr></thead><tbody>${save.scores.map((s,i)=>`<tr><td>${i+1}</td><td><b>${fmt(s.distance)}m</b></td><td>${fmt(s.coins)}</td><td>${WEAPONS[s.weapon]?.name||'Pistol'}</td><td>${new Date(s.date).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</td></tr>`).join('')}</tbody></table><p class="note">Scores and purchases are saved in this browser, on this device.</p>`;}
-function letterImage(label){const im=document.createElement('img');im.src=menuLettering(label);im.alt='';im.setAttribute('aria-hidden','true');return im;}
+function letterImage(label){const source=menuLettering(label),c=document.createElement('canvas');c.className='menu-lettering';c.width=source.width;c.height=source.height;c.getContext('2d').drawImage(source,0,0);c.setAttribute('aria-hidden','true');return c;}
 function artButton(label,fn,cls=''){const b=button('',fn,'menu-art-button '+cls);b.setAttribute('aria-label',label);b.append(letterImage(label));return b;}
 function updateControlHint(){const c=save.settings.controls;$('#hint').textContent=`${keyLabel(c.jump)} jump · ${keyLabel(c.fire)} fire · ${keyLabel(c.pause)} / Esc pause`;canvas.setAttribute('aria-label',`Sketchman game, use ${keyLabel(c.jump)} to jump and ${keyLabel(c.fire)} to fire`);}
 function controlsScreen(back=controlsReturn){
- controlsReturn=back;state='controls';captureControl=null;resetInput();ui.innerHTML='';const panel=document.createElement('section');panel.className='controls-screen';panel.setAttribute('aria-label','Controls');ui.append(panel);
+ controlsReturn=back;state='controls';captureControl=null;resetInput();paper();notebook();ui.innerHTML='';const panel=document.createElement('section');panel.className='controls-screen';panel.setAttribute('aria-label','Controls');ui.append(panel);
  const heading=document.createElement('h1');heading.append(letterImage('Controls'));panel.append(heading);
  const instructions=document.createElement('p');instructions.className='controls-help';instructions.append(letterImage('Choose a key to change it'));panel.append(instructions);
  const rows=document.createElement('div');rows.className='control-rows';panel.append(rows);
@@ -384,7 +403,7 @@ function controlsScreen(back=controlsReturn){
  const footer=document.createElement('div');footer.className='controls-actions';footer.append(artButton('Back',()=>{captureControl=null;back();}),artButton('Reset',()=>{save.settings.controls={...DEFAULT_CONTROLS};persist();updateControlHint();controlsScreen(back);}));panel.append(footer);
 }
 function settings(){
- state='settings';resetInput();optionsHover=null;ui.innerHTML='';
+ state='settings';resetInput();optionsHover=null;renderOriginalOptions(true);ui.innerHTML='';
  const pane=document.createElement('section');pane.className='original-options';pane.setAttribute('aria-label','Options');ui.append(pane);
  // Original game's red curved back arrow, in the upper-right corner.
  const back=button('',menu,'original-options-back');back.setAttribute('aria-label','Back to main menu');back.innerHTML='<img src="shop-art/IMM_BackButton_01.png" alt="">';pane.append(back);
@@ -415,7 +434,7 @@ window.addEventListener('keydown',e=>{const k=e.code;
 let simulationRemainder=0;
 function frame(now){const dt=Math.max(0,Math.min((now-last)/1000||0,.1));last=now;anim+=dt;
  if(state==='playing'&&world){simulationRemainder+=dt;while(simulationRemainder>=1/60-1e-9&&state==='playing'){world.update(1/60);tipTime+=1/60;simulationRemainder-=1/60;if(world.dead&&world.deathTime>1.25)finishRun();}}else simulationRemainder=0;
- if(world&&['playing','paused','over','shop'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}else{paper();notebook();}requestAnimationFrame(frame);
+ if(world&&['playing','paused','over'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}requestAnimationFrame(frame);
 }
 async function boot(){try{warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
  await Promise.all(Array.from({length:2},async()=>{while(queue.length){const sheet=queue.shift();await new Promise((resolve,reject)=>{
@@ -423,16 +442,16 @@ async function boot(){try{warmMenuMusic();const intro=playLoadingIntro($('#loadi
   im.onerror=()=>reject(new Error('Missing atlas: '+sheet.atlas));im.src=`assets/Graphics/${sheet.atlas}/${sheet.atlas}_${sheet.index+1}.png`;
  });}}));await Promise.all([...new Set([...EFFECT_TEXTURES,'ParExpStar_01','ParCoin01','gamePaper'])].map(n=>new Promise(resolve=>{const im=new Image();im.onload=()=>{assets[n]=im;resolve();};im.onerror=resolve;im.src=n==='gamePaper'?'assets/Graphics/LOC_Locations/SCN_Background.jpg':`assets/Graphics/Particles/${n}.png`;})));// Warm the browser's image cache while the loading screen is still visible.
  // These are the images used by the shop category screen, product rows and HUD.
- const shopArtNames=new Set(['STR_Splitter_01','STR_BuyBtn_01','STR_Buy_01','STR_Purchased_01','STR_HUD_01',
+ const shopArtNames=new Set(['IMM_BackButton_01','IMM_MenuBack_01','STR_Splitter_01','STR_BuyBtn_01','STR_BuyBtnON_01','STR_Buy_01','STR_Purchased_01','STR_HUD_01',
   'STR_ICO_Coins2500_01','STR_ICO_Coins5000_01','STR_ICO_Coins15000_01','STR_ICO_Coins90000_01']);
  for(const item of ITEMS)if(item.icon)shopArtNames.add(item.icon);
  for(const weapon of WEAPONS)if(weapon.icon)shopArtNames.add(weapon.icon);
  const shopUrls=['assets/Graphics/Store/STR_Categories_Back_01.jpg',...Array.from(shopArtNames,n=>`shop-art/${n}.png`)];
  await Promise.all(shopUrls.map(url=>new Promise(resolve=>{
-  const im=new Image();im.onload=()=>resolve();im.onerror=()=>resolve();im.src=url;
+  const im=new Image();im.onload=()=>{if(im.decode)im.decode().catch(()=>{}).then(resolve);else resolve();};im.onerror=()=>resolve();im.src=url;
   if(im.complete)resolve();
  })));
- const menuFont=new Image();await new Promise((resolve,reject)=>{menuFont.onload=resolve;menuFont.onerror=reject;menuFont.src='assets/Graphics/Fonts/S1_Dialogs22_1.png';});setMenuFont(menuFont);updateControlHint();await intro;$('#loading').remove();menu();last=performance.now();requestAnimationFrame(frame);}catch(e){$('#loadStatus').textContent='Could not load the game. Reload to try again.';console.error(e);}}
+ const menuFont=new Image();await new Promise((resolve,reject)=>{menuFont.onload=resolve;menuFont.onerror=reject;menuFont.src='assets/Graphics/Fonts/S1_Dialogs22_1.png';});setMenuFont(menuFont);prepareMenus();updateControlHint();await intro;$('#loading').remove();menu();last=performance.now();requestAnimationFrame(frame);}catch(e){$('#loadStatus').textContent='Could not load the game. Reload to try again.';console.error(e);}}
 // Read-only diagnostic surface for verifying the running game.
 window.sketchman={get state(){return state;},get world(){return world;},get save(){return JSON.parse(JSON.stringify(save));}};
 boot();
