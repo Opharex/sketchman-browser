@@ -1,0 +1,6 @@
+export const DEFAULT_CONTROLS=Object.freeze({jump:'KeyW',fire:'Space',pause:'KeyP'});
+export const CONTROL_ACTIONS=['jump','fire','pause'];
+export function validControl(code){return typeof code==='string'&&/^(Key[A-Z]|Digit[0-9]|Numpad[0-9]|Space|Enter|Arrow(Up|Down|Left|Right)|Shift(Left|Right)|Backspace)$/.test(code);}
+export function normalizeControls(value){const result={...DEFAULT_CONTROLS};if(value&&typeof value==='object')for(const action of CONTROL_ACTIONS)if(validControl(value[action]))result[action]=value[action];if(new Set(Object.values(result)).size!==3)return {...DEFAULT_CONTROLS};return result;}
+export function bindControl(controls,action,code){if(!CONTROL_ACTIONS.includes(action)||!validControl(code))return null;const next=normalizeControls(controls),old=next[action],conflict=CONTROL_ACTIONS.find(a=>a!==action&&next[a]===code);if(conflict)next[conflict]=old;next[action]=code;return next;}
+export function keyLabel(code){if(code?.startsWith('Key'))return code.slice(3);if(code?.startsWith('Digit'))return code.slice(5);if(code?.startsWith('Numpad'))return 'Num '+code.slice(6);return ({Space:'Space',ArrowUp:'Up',ArrowDown:'Down',ArrowLeft:'Left',ArrowRight:'Right',ShiftLeft:'Left Shift',ShiftRight:'Right Shift'})[code]||code;}

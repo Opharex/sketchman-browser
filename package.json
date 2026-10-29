@@ -5,7 +5,7 @@
   "description": "Mobile and desktop browser recreation of Sketchman 1.0.5",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check dist/game.js && node --check dist/engine.js && node --check dist/animation.js && node --check dist/normal-run.js && node --check dist/jet-motion.js && node --check dist/destruction.js && node --check dist/destruction-data.js && node --check dist/particle-renderer.js && node --check dist/boss.js && node --check dist/mobile-shop.js && node --check dist/player-select.js"
+    "check": "node --check dist/game.js && node --check dist/engine.js && node --check dist/animation.js && node --check dist/normal-run.js && node --check dist/jet-motion.js && node --check dist/destruction.js && node --check dist/destruction-data.js && node --check dist/particle-renderer.js && node --check dist/boss.js && node --check dist/mobile-shop.js && node --check dist/player-select.js && node --check dist/carousel-motion.js && node --check dist/powerups.js && node --check dist/controls.js && node --check dist/menu-lettering.js && node --check dist/menu-font-data.js"
   },
   "type": "module"
 }

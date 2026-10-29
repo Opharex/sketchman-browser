@@ -38,7 +38,7 @@ export function renderMobileShop({root,save,weapons,items,onBack,onWeapon,onBuy,
    list.append(row);
   }
  }
- const hud=document.createElement('div');hud.className='shop-hud';hud.innerHTML=`<img src="${art('STR_HUD_01')}" alt=""><strong aria-label="Coin balance">${fmt(save.coins)}</strong>`;
+ const hud=document.createElement('div');hud.className='shop-hud';hud.innerHTML=`<img src="${art('STR_HUD_01')}" alt=""><strong aria-label="Coin balance" style="--coin-chars:${fmt(save.coins).length}">${fmt(save.coins)}</strong>`;
  const back=button('Choose a category',()=>rebuild(null),'shop-hud-back');hud.append(back);shop.append(hud);
  requestAnimationFrame(()=>{if(!list.isConnected)return;list.scrollTop=scrollTop??sections[category].offsetTop;});
 }
