@@ -149,3 +149,7 @@
 .screen header button.screen-back-arrow{margin-left:auto;width:clamp(38px,5vw,60px);height:clamp(38px,5vw,60px);min-width:38px;min-height:38px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:grid;place-items:center}
 .screen-back-arrow img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
 @media(max-width:600px){.original-options-extra{left:8%;right:8%}.original-options-extras-controls{gap:1%}.original-options-extras-controls label{gap:4px}}
+
+/* Keep every notebook doodle and both title words visible during the short intro. */
+#loading .loading-film{display:block;width:100%;max-height:79%;height:auto;aspect-ratio:960/464;object-fit:contain;flex-shrink:1}
+#loading video.loading-film{background:#f1f0e5}
