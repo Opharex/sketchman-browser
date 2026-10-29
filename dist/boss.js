@@ -15,7 +15,8 @@ export function advanceBoss(b,dt,playerY,fire){
    if(Math.abs(b.x-tx)<=1&&Math.abs(b.y-ty)<=1){b.x=tx;b.y=ty;if(b.phase==='pass')b.phase='catch';else{b.phase='fight';b.vulnerable=true;}}
   }else{
    b.fightTime+=1/60;b.shoot-=1/60;
-   if(b.fightTime>90){b.pressure+=1/60;if(b.pressure>=2.5){b.pressure-=2.5;b.interval=Math.max(.1,b.interval*.8);}}
+   // Keep the recovered per-encounter volley interval stable throughout the fight.
+   // The previous extra 90-second acceleration was not supported by APK findings.
    if(b.shoot<=1e-9){fire(bossVolley(b,playerY));b.shoot=b.interval;}
   }
  }
