@@ -13,8 +13,13 @@ import {effectSound,EFFECT_TEXTURES} from './destruction.js';
 import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
+import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame} from './skins.js';
 import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=momentum-4af475e';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
+const SKIN_KEY='sketchman-browser-skin-v1';
+let selectedSkin=DEFAULT_SKIN;
+try{selectedSkin=getSkin(localStorage.getItem(SKIN_KEY)).id;}catch{}
+function equipSkin(id){selectedSkin=getSkin(id).id;try{localStorage.setItem(SKIN_KEY,selectedSkin);}catch{}}
 const KEY='sketchman-browser-v1';let save=freshSave(),storageOK=true;try{save=normalizeSave(JSON.parse(localStorage.getItem(KEY)));}catch{};
 try{const legacy=JSON.parse(localStorage.getItem('sketchman-keybinds'));if(legacy&&!JSON.parse(localStorage.getItem(KEY))?.settings?.controls){for(const action of ['jump','fire','pause']){const next=bindControl(save.settings.controls,action,legacy[action]);if(next)save.settings.controls=next;}persist();}}catch{}
 let state='loading',world=null,assets={},sprites={},missions=[],normalData={patterns:[]},last=0,anim=0,ended=false,returnState='menu',tipTime=0,tutorial=false,toastTimer,music=null,musicName='',pendingMission=[],muteForPause=false;
@@ -87,7 +92,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='AUDIO RESTORED';;;
+const VERSION_SPLASH='SKINS READY';;;
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -104,7 +109,7 @@ const MENU_SPRITE_SCALE_X=890/968,MENU_SPRITE_SCALE_Y=596/648;
 const MENU_SPRITE_X=35+55*MENU_SPRITE_SCALE_X,MENU_SPRITE_Y=13+18*MENU_SPRITE_SCALE_Y;
 const MAIN_MENU_ART_RECTS={
  Play:[271,309,317,111], Shop:[296,416,266,94], Scores:[576,435,272,73],
- Tutorial:[302,511,256,69], Options:[582,508,272,73], Controls:[6,508,272,73]
+ Tutorial:[302,511,256,69], Options:[582,508,272,73], Controls:[6,508,272,73], Skins:[6,435,272,73]
 };
 let hoveredMainMenuButton=null,mainMenuPaint=null,controlsArt=null;
 function getControlsArt(){
@@ -148,7 +153,7 @@ function getMainMenuPaint(){
  const c=canvas.getContext('2d',{willReadFrequently:true});c.drawImage(source,0,0);
  const src=source.getContext('2d',{willReadFrequently:true}),tiles={};
  for(const [name,rect]of Object.entries(MAIN_MENU_ART_RECTS)){
-  if(name==='Controls')continue;
+  if(name==='Controls'||name==='Skins')continue;
   const [x,y,w,h]=rect,pixels=src.getImageData(x,y,w,h);
   const dark=name==='Play'?pixels:tintMainMenuBlue(pixels,false);
   const light=name==='Play'?tintMainMenuBlue(pixels,true):pixels;
@@ -163,6 +168,12 @@ function getMainMenuPaint(){
  const controlTile={rect:[x,y,w,h]};
  for(const state of ['dark','light']){art.c.putImageData(art[state],0,0);art.c.drawImage(art.label,(w-tw)/2,(h-th)/2,tw,th);controlTile[state]=art.c.getImageData(0,0,w,h);}
  tiles.Controls=controlTile;c.putImageData(controlTile.dark,x,y);
+ // The new Skins button uses the same blue button art and hover treatment.
+ const [sx,sy,sw,sh]=MAIN_MENU_ART_RECTS.Skins;
+ const skinsLabel=menuLettering('Skins');const skinsScale=Math.min(sw*.82/skinsLabel.width,sh*.88/skinsLabel.height);
+ const skinsTile={rect:[sx,sy,sw,sh]};
+ for(const mode of ['dark','light']){art.c.putImageData(art[mode],0,0);art.c.drawImage(skinsLabel,(sw-skinsLabel.width*skinsScale)/2,(sh-skinsLabel.height*skinsScale)/2,skinsLabel.width*skinsScale,skinsLabel.height*skinsScale);skinsTile[mode]=art.c.getImageData(0,0,sw,sh);}
+ tiles.Skins=skinsTile;c.putImageData(skinsTile.dark,sx,sy);
  mainMenuPaint={canvas,context:c,tiles,active:null};
  return mainMenuPaint;
 }
@@ -209,7 +220,7 @@ function renderOriginalOptions(force=false){
 }
 function prepareMenus(){
  prepareOptionsPanels();getMainMenuPaint();versionSplashImage=menuLettering(VERSION_SPLASH);
- for(const label of ['More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key'])menuLettering(label);
+ for(const label of ['More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman'])menuLettering(label);
  for(const code of [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c=>'Key'+c).concat([...'0123456789'].flatMap(c=>['Digit'+c,'Numpad'+c]),['Space','Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Backspace',...Object.values(save.settings.controls)]))menuLettering(keyLabel(code));
  // These source layers are now retired; the renderer only keeps finished artwork.
  for(const name of ['IMM_MainMenu_01','IMM_Options_01','IMM_Options_MusicON_01','IMM_Options_SoundON_01']){const source=assets[name];source.width=source.height=0;delete assets[name];}
@@ -267,7 +278,7 @@ function renderWorld(){
  }
  for(const b of w.enemyBullets)drawFrame(b.sprite||'BUL_HeliBullet_01',b.x,b.y,1,false,1,enemyBulletRotation(b));
  const n=playerFrame(w),blink=!w.dead&&w.invincible>0&&w.invincible<1.5&&Math.floor(w.t*10)%2;
- if(!blink){if(n==='CHR_DeadFloor_01')drawFrame(n,actorX+20,FLOOR-22,1);else drawFrame(n,actorX,actorY,1);}
+ if(!blink){if(n==='CHR_DeadFloor_01')drawFrame(cosmeticFrame(n,selectedSkin),actorX+20,FLOOR-22,1);else drawFrame(cosmeticFrame(n,selectedSkin),actorX,actorY,1);}
  if(w.invincible>1.5)drawFrame(frameName('PROP_Shield_',frameOf('shield',w.t)),actorX+30,actorY-4,w.gliding?.8:1,false,.85);
  if(w.poseTimer>0&&w.cooldown>w.weapon.rate-.065){const mx=PLAYER_X+[35,35,35,40,20,35,40,35,35,35][w.weapon.id],my=w.y-64+[-29,-10,-15,-30,-34,-29,-30,-10,-10,-10][w.weapon.id];
   if(assets.ParExpStar_01){ctx.save();ctx.translate(mx+10,my);ctx.rotate(w.t*17);ctx.drawImage(assets.ParExpStar_01,-15,-15,30,30);ctx.restore();}
@@ -288,8 +299,15 @@ function button(label,fn,cls='ink'){const b=document.createElement('button');b.c
 function screen(title,{close=menu,balance=false}={}){if(state==='over'&&world)renderWorld();else{paper();notebook();}ui.innerHTML='';const s=document.createElement('section');s.className='screen';const h=document.createElement('header');const t=document.createElement('h1');t.textContent=title;h.append(t);if(balance){const bal=document.createElement('span');bal.className='balance';bal.textContent=`◉ ${fmt(save.coins)}`;h.append(bal);}const b=button('',close,'screen-back-arrow');b.setAttribute('aria-label','Back');b.innerHTML='<img src="shop-art/IMM_BackButton_01.png" alt="">';h.append(b);s.append(h);const c=document.createElement('div');c.className='content';s.append(c);ui.append(s);return {s,c,h};}
 const MAIN_MENU_BUTTONS=[
  ['Play',playSelect],['Shop',()=>shop('menu')],['Scores',scores],
- ['Tutorial',()=>startRun(true)],['Options',settings],['Controls',()=>controlsScreen(menu)]
+ ['Tutorial',()=>startRun(true)],['Options',settings],['Skins',skinsScreen],['Controls',()=>controlsScreen(menu)]
 ];
+function skinsScreen(){
+ state='skins';resetInput();const {s,c}=screen('Skins',{close:menu});s.classList.add('skins-screen');
+ const intro=document.createElement('p');intro.textContent='Choose a character appearance. Skins are visual only and never affect movement, hitboxes, weapons, or damage.';c.append(intro);
+ const choices=document.createElement('div');choices.className='skin-choices';c.append(choices);
+ for(const skin of SKINS){const b=artButton(skin.name,()=>{equipSkin(skin.id);skinsScreen();});b.classList.add('skin-choice');b.setAttribute('aria-pressed',String(selectedSkin===skin.id));choices.append(b);}
+ const note=document.createElement('p');note.className='skin-note';note.textContent='Only the original appearance is available for now. More skins can be added later.';c.append(note);
+}
 function menu(){
  if(world&&!ended)finishRun(true);
  state='menu';world=null;muteForPause=false;hoveredMainMenuButton=null;resetInput();renderMenu();
