@@ -84,7 +84,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='DEATH IN FRAME';;;
+const VERSION_SPLASH='THREE NEW FAREWELLS';;;
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -222,6 +222,42 @@ function renderBoss(w){const b=w.boss||w.bossDeath;if(!b)return;const dying=!!w.
  for(const dx of [-85,110])drawFrame('ENM_JeepWheel_01',b.x+dx,b.y+48,1,false,alpha,b.t*2*1000*Math.PI/180);
  if(!dying&&b.healthShown)drawHealthBar(b.x-90,b.y-200,Math.max(0,b.hp/b.maxHp));
 }
+// Hazard-specific deaths reuse the APK's inked character frames. Motion is
+// derived from deathTime, so it stays deterministic at any display refresh rate.
+function renderHazardDeath(w,x,y){
+ const t=w.deathTime,c=w.deathCause;
+ if(c!==5&&c!==6&&c!==7)return false;
+ const smooth=u=>{u=Math.max(0,Math.min(1,u));return u*u*(3-2*u);};
+ if(c===5){
+  // Air mine: backward somersault, diagonal fall, one diminishing bounce.
+  const p=smooth(t/.66),bounce=t>.66?Math.sin(Math.PI*Math.min(1,(t-.66)/.34))*28:0;
+  const dx=-Math.min(95,t*145),dy=-Math.sin(Math.PI*p)*120+Math.max(0,t-.66)*30-bounce;
+  const angle=-Math.PI*2*p;
+  drawFrame(frameName('CHR_Death_',Math.min(9,1+Math.floor(Math.min(t,.30)/.033))),x+dx,y+dy,1,false,1,angle);
+  // Detached weapon: thin black sketch strokes, rotating independently.
+  if(t<1.08){const wx=x+38+Math.min(160,t*165),wy=y-25-75*Math.sin(Math.PI*Math.min(t,1));ctx.save();ctx.translate(wx,wy);ctx.rotate(t*13);ctx.strokeStyle='#24252b';ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-19,0);ctx.lineTo(17,0);ctx.moveTo(-9,1);ctx.lineTo(-7,13);ctx.stroke();ctx.restore();}
+ }else if(c===6){
+  // Junk: three staggered recovery steps, then a forward collapse.
+  const stumble=Math.min(1,t/.65),fall=smooth((t-.65)/.34);
+  const dx=stumble*64+fall*22,dy=-Math.abs(Math.sin(stumble*Math.PI*3))*14+fall*34;
+  drawFrame(t<.65?frameName('CHR_Run_',1+Math.floor(t*20)%17):frameName('CHR_Death_',Math.min(9,1+Math.floor(fall*8))),x+dx,y+dy,1,false,1,fall*1.25+Math.sin(stumble*Math.PI*6)*.13*(1-fall));
+  // A loose fragment hops once and taps the character.
+  if(t<.9){const bx=x+25+t*110,by=y-75-32*Math.sin(Math.PI*Math.min(1,t/.9));ctx.save();ctx.translate(bx,by);ctx.rotate(t*12);ctx.fillStyle='#5a6068';ctx.strokeStyle='#24252b';ctx.lineWidth=2;ctx.fillRect(-6,-5,12,10);ctx.strokeRect(-6,-5,12,10);ctx.restore();}
+ }else{
+  // Death ray: a brief static silhouette, intermittent skeleton lines,
+  // then the original inked death sequence with drifting smoke.
+  const falling=smooth((t-.38)/.45);
+  drawFrame(t<.38?'CHR_Run_01':frameName('CHR_Death_',Math.min(9,1+Math.floor(falling*8))),x+falling*18,y+falling*25,1,false,1,falling*.9);
+  if(t<.38){
+   ctx.save();ctx.strokeStyle='#f1f1e8';ctx.lineWidth=2.5;ctx.globalAlpha=.85;
+   for(let i=0;i<4;i++){const bx=x-28+i*18,by=y-70+(i%2)*20;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+9,by-15);ctx.lineTo(bx+2,by-25);ctx.stroke();}
+   if((Math.floor(t*12)%3)===0){ctx.strokeStyle='#262b30';ctx.beginPath();ctx.moveTo(x,y-100);ctx.lineTo(x,y-30);ctx.moveTo(x-18,y-70);ctx.lineTo(x+18,y-70);ctx.moveTo(x-14,y-45);ctx.lineTo(x+14,y-45);ctx.stroke();}
+   ctx.restore();
+  }
+  if(t>.45){ctx.save();ctx.fillStyle='rgba(74,78,84,.24)';for(let i=0;i<3;i++){const u=t-.45-i*.12;if(u>0){ctx.beginPath();ctx.arc(x+Math.sin(u*4+i)*15,y-70-u*48,5+u*12,0,Math.PI*2);ctx.fill();}}ctx.restore();}
+ }
+ return true;
+}
 function renderWorld(){
  const w=world;
  if(assets.gamePaper)ctx.drawImage(assets.gamePaper,0,0,960,640,0,0,960,640);else paper();
@@ -264,7 +300,7 @@ function renderWorld(){
  }
  for(const b of w.enemyBullets)drawFrame(b.sprite||'BUL_HeliBullet_01',b.x,b.y,1,false,1,enemyBulletRotation(b));
  const n=playerFrame(w),blink=!w.dead&&w.invincible>0&&w.invincible<1.5&&Math.floor(w.t*10)%2;
- if(!blink){if(n==='CHR_DeadFloor_01')drawFrame(n,actorX+20,FLOOR-22,1);else drawFrame(n,actorX,actorY,1);}
+ if(!blink){if(!(w.dead&&renderHazardDeath(w,actorX,actorY))){if(n==='CHR_DeadFloor_01')drawFrame(n,actorX+20,FLOOR-22,1);else drawFrame(n,actorX,actorY,1);}}
  if(w.invincible>1.5)drawFrame(frameName('PROP_Shield_',frameOf('shield',w.t)),actorX+30,actorY-4,w.gliding?.8:1,false,.85);
  if(w.poseTimer>0&&w.cooldown>w.weapon.rate-.065){const mx=PLAYER_X+[35,35,35,40,20,35,40,35,35,35][w.weapon.id],my=w.y-64+[-29,-10,-15,-30,-34,-29,-30,-10,-10,-10][w.weapon.id];
   if(assets.ParExpStar_01){ctx.save();ctx.translate(mx+10,my);ctx.rotate(w.t*17);ctx.drawImage(assets.ParExpStar_01,-15,-15,30,30);ctx.restore();}
