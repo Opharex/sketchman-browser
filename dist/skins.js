@@ -20,36 +20,51 @@ export function prepareShadowSprites(assets,sprites){
   // Preserve the exact source alpha values and original sprite dimensions.
   for(let i=0;i<d.length;i+=4){d[i]=0;d[i+1]=0;d[i+2]=0;}
   g.putImageData(pixels,0,0);
-  // Locate the upper head using occupied alpha pixels, rather than assuming
-  // all animation frames share the same cropped image coordinates.
-  const rows=[];
-  for(let y=0;y<Math.min(h,Math.round(h*.58));y++){
-   let lo=w,hi=-1,count=0;
-   for(let x=0;x<w;x++){if(d[(y*w+x)*4+3]>110){lo=Math.min(lo,x);hi=Math.max(hi,x);count++;}}
-   rows.push({lo,hi,count,y});
-  }
-  const visible=rows.filter(r=>r.count>=Math.max(4,w*.07));
-  if(visible.length){
-   const top=visible[0].y;
-   // Head ends at the first sustained narrowing below its broad upper section.
-   const peak=Math.max(...visible.filter(r=>r.y<top+h*.35).map(r=>r.hi-r.lo+1));
-   let bottom=Math.min(h-1,top+Math.round(peak*1.05));
-   const candidate=visible.find(r=>r.y>top+peak*.55&&r.y<top+peak*1.5&&r.hi-r.lo+1<peak*.58);
-   if(candidate)bottom=Math.min(bottom,candidate.y);
-   const head=visible.filter(r=>r.y>=top&&r.y<=bottom);
-   const left=Math.min(...head.map(r=>r.lo)),right=Math.max(...head.map(r=>r.hi));
-   const width=right-left+1,height=bottom-top+1;
-   // Never add floating eyes to frames with no discernible head.
-   if(width>=14&&height>=14&&width/h<.9){
-    const eyeW=Math.max(2,Math.min(9,width*.085)),eyeH=Math.max(5,Math.min(22,height*.29));
-    const ey=top+height*.49;
-    g.save();g.fillStyle='#ffffff';
-    for(const ex of [left+width*.56,left+width*.77]){
-     // Clip white pixels to the original sprite's alpha silhouette.
-     g.beginPath();g.roundRect(ex-eyeW/2,ey-eyeH/2,eyeW,eyeH,eyeW/2);g.fill();
-    }
-    g.globalCompositeOperation='destination-in';g.drawImage(source,0,0);g.restore();
+  // Track the head as a single connected horizontal mass. Previous code used
+  // the outermost opaque pixels of each row, so arms/weapons changed the eye
+  // positions between animation frames.
+  const scan=[];
+  for(let y=0;y<Math.min(h,Math.ceil(h*.64));y++){
+   const runs=[];let start=-1;
+   for(let x=0;x<=w;x++){
+    const filled=x<w&&d[(y*w+x)*4+3]>160;
+    if(filled&&start<0)start=x;
+    if(!filled&&start>=0){if(x-start>=3)runs.push({left:start,right:x-1,width:x-start});start=-1;}
    }
+   scan.push(runs);
+  }
+  // Prefer the broad, roughly circular head above the shoulders, not the
+  // overall frame bounds (which include moving hands and weapons).
+  let best=null;
+  for(let y=0;y<scan.length;y++)for(const run of scan[y]){
+   if(run.width<Math.max(12,w*.13))continue;
+   const cx=(run.left+run.right)/2;
+   let top=y,bottom=y,left=run.left,right=run.right;
+   for(let yy=y-1;yy>=0;yy--){
+    const match=scan[yy].filter(t=>Math.abs((t.left+t.right)/2-cx)<run.width*.27).sort((a,b)=>b.width-a.width)[0];
+    if(!match||match.width<run.width*.35)break;top=yy;
+   }
+   for(let yy=y+1;yy<scan.length;yy++){
+    const match=scan[yy].filter(t=>Math.abs((t.left+t.right)/2-cx)<run.width*.27).sort((a,b)=>b.width-a.width)[0];
+    if(!match||match.width<run.width*.45)break;bottom=yy;
+    if(yy-y>run.width*.62)break;
+   }
+   const height=bottom-top+1;
+   const ratio=height/run.width;
+   if(ratio<.55||ratio>1.55)continue;
+   const score=run.width*Math.min(1,height/run.width)*(1-y/h*.5);
+   if(!best||score>best.score)best={cx,top,width:run.width,height,score};
+  }
+  if(best){
+   const {cx,top,width,height}=best;
+   const eyeW=Math.max(2,Math.min(9,width*.085));
+   const eyeH=Math.max(5,Math.min(22,height*.31));
+   const cy=top+height*.48;
+   g.save();g.fillStyle='#fff';
+   for(const ex of [cx+width*.065,cx+width*.28]){
+    g.beginPath();g.roundRect(ex-eyeW/2,cy-eyeH/2,eyeW,eyeH,eyeW/2);g.fill();
+   }
+   g.globalCompositeOperation='destination-in';g.drawImage(source,0,0);g.restore();
   }
   assets['SHADOW_'+name]=c;
   sprites['SHADOW_'+name]=sprites[name];
