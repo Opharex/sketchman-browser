@@ -2,7 +2,7 @@
 @media(max-width:600px){.grid{grid-template-columns:repeat(2,1fr)}.card p{font-size:10px}.card h2{font-size:12px}.card .price{font-size:10px}.card button{font-size:11px;min-height:30px}.card img{height:48px}.screen header .balance{font-size:11px}.mission div{font-size:11px}.mission .reward{font-size:10px}.screen .note{font-size:10px}.jump,.fire{min-height:44px}.pause{min-width:30px;min-height:30px}.how{font-size:11px}.settings{font-size:14px}.center p{font-size:12px}.center .ink{min-height:32px}.paused .screen{inset:10% 17%;padding:3%}.paused .actions{gap:6px}.paused h1{font-size:1.8em;margin:0 0 10px}.tutorialTip{font-size:10px}}
 
 /* Original HUD anchors: pause 886,69; jump 144,576; fire 816,576. */
-.pause{width:4.2%;min-width:0;min-height:0;aspect-ratio:1;right:4.375%;top:5.78%}.pause img{width:100%;height:100%;object-fit:contain}.weapon{top:5%;left:25%;opacity:.85}
+.pause{width:6.67%;right:4.375%;top:5.78%}.weapon{top:5%;left:25%;opacity:.85}
 
 /* Landscape and Fullscreen API sizing. Preserve the game's native 3:2 aspect ratio. */
 #app:fullscreen{width:100vw;height:100dvh;max-width:none;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#152534}
@@ -195,3 +195,11 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
 #frame{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 @media(orientation:landscape) and (max-height:550px){#app{width:min(calc(var(--viewport-width,100vw) - env(safe-area-inset-left) - env(safe-area-inset-right)),calc((var(--viewport-height,100vh) - env(safe-area-inset-top) - env(safe-area-inset-bottom))*1.5))}}
 
+
+/* Mobile pause OVERLAY sizing. Do not change the in-game pause HUD button. */
+.paused .sketch-pause{inset:14% 29%;padding:2.5%;gap:4px;min-height:0}
+.paused .sketch-pause h1{font-size:clamp(14px,2.4vw,25px);margin:0}
+.paused .sketch-pause .actions{width:94%;gap:4px;flex:1;min-height:0;justify-content:space-evenly}
+.paused .sketch-pause .menu-art-button{width:100%;min-width:0;min-height:0;height:auto;flex:1 1 0;max-height:45px}
+.paused .sketch-pause .menu-art-button>:is(img,.menu-lettering){height:70%;max-height:28px}
+@media(max-width:600px),(max-height:550px){.paused .sketch-pause{inset:9% 25%;padding:2%}.paused .sketch-pause .actions{gap:3px}}
