@@ -63,7 +63,10 @@ function updateMusic(){
 }
 // Capture the first genuine interaction, including taps and keyboard input,
 // to unlock music on browsers that restrict autoplay.
-function unlockMenuAudio(){soundPlayer.unlock();playMusic();}
+function unlockMenuAudio(){soundPlayer.unlock();if(state!=='paused')playMusic();}
+// Mobile browsers can suspend audio when the tab is backgrounded or the screen locks.
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){soundPlayer.unlock();if(state!=='paused')updateMusic();}});
+window.addEventListener('pageshow',()=>{soundPlayer.unlock();if(state!=='paused')updateMusic();});
 window.addEventListener('pointerdown',unlockMenuAudio,{capture:true});
 window.addEventListener('keydown',unlockMenuAudio,{capture:true});
 window.addEventListener('touchend',unlockMenuAudio,{capture:true,passive:true});
@@ -84,7 +87,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='DEATH UPDATE UNDONE';;;
+const VERSION_SPLASH='AUDIO RESTORED';;;
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -289,7 +292,7 @@ const MAIN_MENU_BUTTONS=[
 ];
 function menu(){
  if(world&&!ended)finishRun(true);
- state='menu';world=null;hoveredMainMenuButton=null;resetInput();renderMenu();
+ state='menu';world=null;muteForPause=false;hoveredMainMenuButton=null;resetInput();renderMenu();
  ui.innerHTML='';setMusic('M_0001_Menu.mp3');
  for(const [label,fn]of MAIN_MENU_BUTTONS){
   const b=button(label,fn,'hit');b.setAttribute('aria-label',label);
