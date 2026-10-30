@@ -55,7 +55,7 @@ export function prepareShadowSprites(assets,sprites){
     }
     if(best){
      // Eyes remain within the detected head's upper-right area.
-     ex=Math.min(best.x1-12,Math.max(best.x0+13,best.x0+(best.x1-best.x0)*.65));
+     ex=Math.min(best.x1-5,Math.max(best.x0+18,best.x0+(best.x1-best.x0)*.83));
      ey=best.y+9;
     }
    }
