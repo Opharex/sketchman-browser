@@ -252,7 +252,7 @@ function renderWorld(){
  const actorX=PLAYER_X,actorY=w.y-64;
  const shadowScale=Math.max(.3,1-(FLOOR-w.y)/400);img('SCN_Shadow_01',actorX-50*shadowScale,476,100*shadowScale,14,.32);
  for(const e of w.entities){if(e.x>1200)continue;const cy=e.y-e.h/2;
-  if(e.type==='coin')drawFrame(frameName('CON_Coin_',frameOf('coin',e.age)),e.x,cy,.5);
+  if(e.type==='coin')drawFrame(frameName('CON_Coin_',frameOf('coin',e.age)),e.x,cy,1);
   else if(e.type==='health'||e.type==='shield')drawFrame(e.type==='health'?'PWR_Health_01':'PWR_Invincible_01',e.x,cy+(e.sourcePowerup?0:Math.sin(e.age*4)*3),e.sourcePowerup?1:.55);
   else if(e.type==='enemy'){
    const fade=e.dying?Math.max(0,1-(e.deathTime-.3)/.2):1;
