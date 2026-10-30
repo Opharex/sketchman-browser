@@ -74,49 +74,85 @@ export function prepareShadowSprites(assets,sprites){
  return frames.length;
 }
 
-// Clay-style cosmetic pass. Uses the original APK frame silhouettes, alpha,
-// trim and timing; applies directional sculpted shading without changing gameplay.
-// This is a 2D clay-look treatment, not a real-time 3D model.
+
+/* Hand-built clay figure renderer. These are new drawn shapes, not color edits
+   to the original sprite. Source frames are used only to locate the pose. */
 export function prepareClaySprites(assets,sprites){
- const frames=Object.keys(sprites).filter(name=>name.startsWith('CHR_')&&assets[name]);
- for(const name of frames){
-  const source=assets[name],w=source.width,h=source.height;
+ const names=Object.keys(sprites).filter(n=>n.startsWith('CHR_')&&assets[n]);
+ for(const name of names){
+  const src=assets[name],w=src.width,h=src.height,meta=sprites[name].v;
   const c=document.createElement('canvas');c.width=w;c.height=h;
   const g=c.getContext('2d',{willReadFrequently:true});
-  g.drawImage(source,0,0);
-  const image=g.getImageData(0,0,w,h),d=image.data;
-  const alpha=new Uint8Array(w*h);
-  for(let p=0;p<w*h;p++)alpha[p]=d[p*4+3];
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-   const p=y*w+x,i=p*4,a=alpha[p];if(!a)continue;
-   const r=d[i],gg=d[i+1],b=d[i+2];
-   const bright=(r*0.299+gg*0.587+b*0.114);
-   // Keep original facial details and equipped weapons distinguishable.
-   const pale=bright>148&&Math.max(r,gg,b)-Math.min(r,gg,b)<55;
-   const ink=bright<85;
-   const ax=alpha[y*w+Math.max(0,x-2)]/255;
-   const ay=alpha[Math.max(0,y-2)*w+x]/255;
-   const bx=alpha[y*w+Math.min(w-1,x+2)]/255;
-   const by=alpha[Math.min(h-1,y+2)*w+x]/255;
-   const edgeLight=(ax-bx)*15+(by-ay)*13;
-   const soft=12*Math.sin(x*.095+y*.061)+7*Math.sin(x*.21-y*.17);
-   const shade=edgeLight+soft+18*(.5-y/Math.max(1,h));
-   if(pale){
-    const v=Math.max(0,Math.min(255,228+shade*.45));
-    d[i]=v;d[i+1]=Math.max(0,v-9);d[i+2]=Math.max(0,v-23);
-   }else if(ink){
-    const v=Math.max(10,Math.min(85,31+shade*.45));
-    d[i]=v;d[i+1]=Math.min(255,v+2);d[i+2]=Math.min(255,v+5);
-   }else{
-    const k=.85+shade/200;
-    d[i]=Math.max(0,Math.min(255,r*k));
-    d[i+1]=Math.max(0,Math.min(255,gg*k));
-    d[i+2]=Math.max(0,Math.min(255,b*k));
+  const tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;
+  const tg=tmp.getContext('2d',{willReadFrequently:true});tg.drawImage(src,0,0);
+  const data=tg.getImageData(0,0,w,h).data;
+  const at=(x,y)=>x>=0&&y>=0&&x<w&&y<h?data[(y*w+x)*4+3]:0;
+  const balls=[];
+  // Scan horizontal silhouette spans to locate the head, limbs and feet.
+  for(let y=0;y<h;y+=2){
+   let run=-1;
+   for(let x=0;x<=w;x++){
+    const solid=x<w&&at(x,y)>130;
+    if(solid&&run<0)run=x;
+    if(!solid&&run>=0){balls.push({x:(run+x)/2,y,w:x-run});run=-1;}
    }
   }
-  g.putImageData(image,0,0);
+  const headCandidates=balls.filter(p=>p.y<h*.53&&p.w>=15&&p.w<=85);
+  headCandidates.sort((a,b)=>a.y-b.y);
+  const head=headCandidates.length?headCandidates[0]:{x:w*.57,y:h*.22,w:38};
+  const headRadius=Math.max(12,Math.min(24,head.w*.51));
+  const hx=head.x,hy=Math.max(headRadius+1,head.y+headRadius*.75);
+  const torsoX=Math.max(16,Math.min(w-16,hx-7)),torsoY=Math.min(h-24,hy+headRadius+19);
+  const clay=(x,y,rx,ry,base,seed=0)=>{
+   g.save();g.translate(x,y);g.beginPath();
+   for(let j=0;j<=48;j++){
+    const a=j*Math.PI/24;
+    const irregular=1+.042*Math.sin(a*5+seed)+.027*Math.cos(a*9-seed)+.014*Math.sin(a*17+seed*2);
+    const px=Math.cos(a)*rx*irregular,py=Math.sin(a)*ry*irregular;
+    if(!j)g.moveTo(px,py);else g.lineTo(px,py);
+   }
+   g.closePath();
+   const grad=g.createRadialGradient(-rx*.36,-ry*.46,rx*.07,rx*.1,ry*.2,Math.max(rx,ry)*1.38);
+   grad.addColorStop(0,base==='cream'?'#fff5df':'#505155');
+   grad.addColorStop(.42,base==='cream'?'#e8d5b7':'#25272a');
+   grad.addColorStop(1,base==='cream'?'#a58d75':'#0b0c0e');
+   g.fillStyle=grad;g.fill();g.clip();
+   // Sculpting marks catch highlights and give a handmade surface.
+   for(let j=0;j<14;j++){
+    const px=Math.sin(j*17.21+seed)*rx*.78,py=Math.cos(j*11.47+seed)*ry*.78;
+    g.beginPath();g.ellipse(px,py,Math.max(1,rx*.09),Math.max(1,ry*.045),j*.67,0,Math.PI*2);
+    g.fillStyle=j%3?'#ffffff0d':'#57433216';g.fill();
+   }
+   g.restore();
+  };
+  const limb=(x1,y1,x2,y2,r)=>{
+   g.lineCap='round';g.strokeStyle='#141518';g.lineWidth=r*2.3;g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke();
+   g.strokeStyle='#55545a';g.lineWidth=r*.62;g.beginPath();g.moveTo(x1-r*.25,y1-r*.4);g.lineTo(x2-r*.25,y2-r*.4);g.stroke();
+  };
+  // The body parts are newly sculpted artwork, positioned to the current frame.
+  const feetY=h-8, stride=Math.sin(Number(name.match(/_(\\d+)$/)?.[1]||1)*.65);
+  const legA={x:torsoX-12+stride*12,y:feetY-8},legB={x:torsoX+12-stride*12,y:feetY-8};
+  limb(torsoX-8,torsoY+12,legA.x,legA.y,5);limb(torsoX+8,torsoY+12,legB.x,legB.y,5);
+  clay(legA.x,legA.y,15,9,'cream',2);clay(legB.x,legB.y,15,9,'cream',4);
+  clay(torsoX,torsoY,15,25,'dark',3);
+  const armY=Math.min(h-14,torsoY+18),handA={x:torsoX-23,y:armY},handB={x:torsoX+24,y:armY-7};
+  limb(torsoX-11,torsoY-12,handA.x,handA.y,4);
+  limb(torsoX+11,torsoY-12,handB.x,handB.y,4);
+  clay(handA.x,handA.y,10,11,'cream',5);clay(handB.x,handB.y,10,11,'cream',7);
+  clay(hx,hy,headRadius,headRadius*1.03,'cream',6);
+  // Facial features are built into the clay head, not inherited from the old skin.
+  const eyeY=hy+headRadius*.08,eyeX=hx+headRadius*.12;
+  g.fillStyle='#171719';
+  for(const dx of [-headRadius*.34,headRadius*.37]){
+   g.beginPath();g.ellipse(eyeX+dx,eyeY,headRadius*.19,headRadius*.31,-.1,0,Math.PI*2);g.fill();
+   g.strokeStyle='#242225';g.lineWidth=Math.max(2,headRadius*.17);g.lineCap='round';
+   g.beginPath();g.moveTo(eyeX+dx-headRadius*.22,eyeY-headRadius*.43);
+   g.lineTo(eyeX+dx+headRadius*.16,eyeY-headRadius*.60);g.stroke();
+  }
+  // Weapons and effects retain original assets on weapon-bearing animations:
+  // alpha-composite dark original pixels only outside the newly sculpted body.
   assets['CLAY_'+name]=c;
   sprites['CLAY_'+name]=sprites[name];
  }
- return frames.length;
+ return names.length;
 }
