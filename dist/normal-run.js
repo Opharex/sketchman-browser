@@ -22,20 +22,16 @@ export class NormalRunDirector {
   }
   update(dt,onEvent,onBoundary=()=>null){
     let remaining=dt*1000;
-    // APK patterns can begin with a 0 ms event. Emit those at the exact
-    // pattern boundary, rather than delaying them until the next render tick.
-    const emitDue=()=>{while(this.cursor<this.current.events.length&&this.current.events[this.cursor].at<=this.clock+1e-7)onEvent(this.current.events[this.cursor++],this.scale);};
-    if(remaining>1e-8&&this.pauseRemaining<=0)emitDue();
     while(remaining>1e-8){
-      if(this.pauseRemaining>0){const wait=Math.min(remaining,this.pauseRemaining);remaining-=wait;this.pauseRemaining-=wait;if(this.pauseRemaining<=1e-8){this.pauseRemaining=0;this.select();emitDue();}continue;}
+      if(this.pauseRemaining>0){const wait=Math.min(remaining,this.pauseRemaining);remaining-=wait;this.pauseRemaining-=wait;if(this.pauseRemaining<=1e-8){this.pauseRemaining=0;this.select();}continue;}
       const step=Math.min(remaining,this.current.duration-this.clock);
       this.clock+=step;this.activeTime+=step/1000;remaining-=step;
-      emitDue();
+      while(this.cursor<this.current.events.length&&this.current.events[this.cursor].at<=this.clock+1e-7){onEvent(this.current.events[this.cursor++],this.scale);}
       if(this.clock>=this.current.duration-1e-7){
         const result=onBoundary(this.activeTime,this.scale);
         if(result?.pause)this.pauseRemaining=result.pause*1000;
-        else if(result?.sequential){this.id=(this.id+1)%this.patterns.length;this.current=this.patterns[this.id];this.clock=0;this.cursor=0;this.history.push(this.id);emitDue();}
-        else {this.select();emitDue();}
+        else if(result?.sequential){this.id=(this.id+1)%this.patterns.length;this.current=this.patterns[this.id];this.clock=0;this.cursor=0;this.history.push(this.id);}
+        else this.select();
       }
     }
   }
