@@ -20,49 +20,57 @@ export function prepareShadowSprites(assets,sprites){
   // Preserve the exact source alpha values and original sprite dimensions.
   for(let i=0;i<d.length;i+=4){d[i]=0;d[i+1]=0;d[i+2]=0;}
   g.putImageData(pixels,0,0);
-  // Track the head as a single connected horizontal mass. Previous code used
-  // the outermost opaque pixels of each row, so arms/weapons changed the eye
-  // positions between animation frames.
-  const scan=[];
-  for(let y=0;y<Math.min(h,Math.ceil(h*.64));y++){
-   const runs=[];let start=-1;
-   for(let x=0;x<=w;x++){
-    const filled=x<w&&d[(y*w+x)*4+3]>160;
-    if(filled&&start<0)start=x;
-    if(!filled&&start>=0){if(x-start>=3)runs.push({left:start,right:x-1,width:x-start});start=-1;}
-   }
-   scan.push(runs);
+  // Find the ORIGINAL eyes in the source image. Never guess the face location
+  // from the silhouette: animated arms, weapons and rolling poses change it.
+  const original=document.createElement('canvas');original.width=w;original.height=h;
+  const og=original.getContext('2d',{willReadFrequently:true});og.drawImage(source,0,0);
+  const raw=og.getImageData(0,0,w,h).data;
+  const white=new Uint8Array(w*h),dark=new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++){
+   const k=i*4,r=raw[k],gr=raw[k+1],bl=raw[k+2],alpha=raw[k+3];
+   white[i]=alpha>190&&r>170&&gr>170&&bl>170&&Math.max(r,gr,bl)-Math.min(r,gr,bl)<55?1:0;
+   dark[i]=alpha>190&&r<110&&gr<110&&bl<110?1:0;
   }
-  // Prefer the broad, roughly circular head above the shoulders, not the
-  // overall frame bounds (which include moving hands and weapons).
-  let best=null;
-  for(let y=0;y<scan.length;y++)for(const run of scan[y]){
-   if(run.width<Math.max(12,w*.13))continue;
-   const cx=(run.left+run.right)/2;
-   let top=y,bottom=y,left=run.left,right=run.right;
-   for(let yy=y-1;yy>=0;yy--){
-    const match=scan[yy].filter(t=>Math.abs((t.left+t.right)/2-cx)<run.width*.27).sort((a,b)=>b.width-a.width)[0];
-    if(!match||match.width<run.width*.35)break;top=yy;
+  // An eye must be a small dark island surrounded by the original white face.
+  // Connected-component search excludes long outlines, limbs and weapon art.
+  const seen=new Uint8Array(w*h),eyes=[];
+  for(let i=0;i<w*h;i++){
+   if(!dark[i]||seen[i])continue;
+   const queue=[i];seen[i]=1;let left=w,right=0,top=h,bottom=0,touchesEdge=false;
+   for(let q=0;q<queue.length;q++){
+    const pos=queue[q],x=pos%w,y=(pos/w)|0;
+    left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
+    if(x===0||x===w-1||y===0||y===h-1)touchesEdge=true;
+    for(const next of [pos-1,pos+1,pos-w,pos+w]){
+     if(next<0||next>=w*h||Math.abs(next%w-x)+Math.abs(((next/w)|0)-y)!==1||seen[next]||!dark[next])continue;
+     seen[next]=1;queue.push(next);
+    }
    }
-   for(let yy=y+1;yy<scan.length;yy++){
-    const match=scan[yy].filter(t=>Math.abs((t.left+t.right)/2-cx)<run.width*.27).sort((a,b)=>b.width-a.width)[0];
-    if(!match||match.width<run.width*.45)break;bottom=yy;
-    if(yy-y>run.width*.62)break;
+   const ew=right-left+1,eh=bottom-top+1;
+   if(touchesEdge||queue.length<3||ew<1||ew>15||eh<3||eh>27||eh<ew*.9)continue;
+   let surrounding=0,checks=0;
+   for(let y=Math.max(0,top-3);y<=Math.min(h-1,bottom+3);y++)for(let x=Math.max(0,left-3);x<=Math.min(w-1,right+3);x++){
+    if(x>=left&&x<=right&&y>=top&&y<=bottom)continue;
+    checks++;surrounding+=white[y*w+x];
    }
-   const height=bottom-top+1;
-   const ratio=height/run.width;
-   if(ratio<.55||ratio>1.55)continue;
-   const score=run.width*Math.min(1,height/run.width)*(1-y/h*.5);
-   if(!best||score>best.score)best={cx,top,width:run.width,height,score};
+   if(surrounding/checks>.46)eyes.push({x:(left+right)/2,y:(top+bottom)/2,w:ew,h:eh});
   }
-  if(best){
-   const {cx,top,width,height}=best;
-   const eyeW=Math.max(2,Math.min(9,width*.085));
-   const eyeH=Math.max(5,Math.min(22,height*.31));
-   const cy=top+height*.48;
-   g.save();g.fillStyle='#fff';
-   for(const ex of [cx+width*.065,cx+width*.28]){
-    g.beginPath();g.roundRect(ex-eyeW/2,cy-eyeH/2,eyeW,eyeH,eyeW/2);g.fill();
+  // Require a plausible pair from the actual face. If the eyes are hidden
+  // in a roll/death frame, leave them hidden instead of drawing on the body.
+  let pair=null,bestScore=-Infinity;
+  for(let i=0;i<eyes.length;i++)for(let j=i+1;j<eyes.length;j++){
+   const p=eyes[i],q=eyes[j],dx=Math.abs(p.x-q.x),dy=Math.abs(p.y-q.y);
+   if(dx<3||dx>Math.max(45,w*.35)||dy>Math.max(6,Math.max(p.h,q.h)*.65))continue;
+   const similarity=1-Math.abs(p.h-q.h)/Math.max(p.h,q.h);
+   if(similarity<.45)continue;
+   const score=similarity*10-dy*.5-Math.abs(p.w-q.w)*.2;
+   if(score>bestScore){bestScore=score;pair=[p,q];}
+  }
+  if(pair){
+   g.save();g.fillStyle='#ffffff';
+   for(const eye of pair){
+    const ew=Math.max(2,Math.min(9,eye.w)),eh=Math.max(5,Math.min(23,eye.h));
+    g.beginPath();g.roundRect(eye.x-ew/2,eye.y-eh/2,ew,eh,ew/2);g.fill();
    }
    g.globalCompositeOperation='destination-in';g.drawImage(source,0,0);g.restore();
   }
