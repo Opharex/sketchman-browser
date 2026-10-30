@@ -2,11 +2,12 @@
 // All dimensions, trim offsets, animation clocks and collision state remain untouched.
 export const SKINS=Object.freeze([
  {id:'default',name:'Original Sketchman'},
- {id:'shadow',name:'Shadow'}
+ {id:'shadow',name:'Shadow'},
+ {id:'clay',name:'3D Clay'}
 ]);
 export const DEFAULT_SKIN='default';
 export function getSkin(id){return SKINS.find(s=>s.id===id)||SKINS[0];}
-export function cosmeticFrame(frame,skinId){return skinId==='shadow'?'SHADOW_'+frame:frame;}
+export function cosmeticFrame(frame,skinId){return skinId==='shadow'?'SHADOW_'+frame:skinId==='clay'?'CLAY_'+frame:frame;}
 // Build an identical alpha mask for every original player frame and place white eyes
 // inside the head region. The generated sprites never modify original frame canvases.
 export function prepareShadowSprites(assets,sprites){
@@ -69,6 +70,53 @@ export function prepareShadowSprites(assets,sprites){
   }
   assets['SHADOW_'+name]=c;
   sprites['SHADOW_'+name]=sprites[name];
+ }
+ return frames.length;
+}
+
+// Clay-style cosmetic pass. Uses the original APK frame silhouettes, alpha,
+// trim and timing; applies directional sculpted shading without changing gameplay.
+// This is a 2D clay-look treatment, not a real-time 3D model.
+export function prepareClaySprites(assets,sprites){
+ const frames=Object.keys(sprites).filter(name=>name.startsWith('CHR_')&&assets[name]);
+ for(const name of frames){
+  const source=assets[name],w=source.width,h=source.height;
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  const g=c.getContext('2d',{willReadFrequently:true});
+  g.drawImage(source,0,0);
+  const image=g.getImageData(0,0,w,h),d=image.data;
+  const alpha=new Uint8Array(w*h);
+  for(let p=0;p<w*h;p++)alpha[p]=d[p*4+3];
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   const p=y*w+x,i=p*4,a=alpha[p];if(!a)continue;
+   const r=d[i],gg=d[i+1],b=d[i+2];
+   const bright=(r*0.299+gg*0.587+b*0.114);
+   // Keep original facial details and equipped weapons distinguishable.
+   const pale=bright>148&&Math.max(r,gg,b)-Math.min(r,gg,b)<55;
+   const ink=bright<85;
+   const ax=alpha[y*w+Math.max(0,x-2)]/255;
+   const ay=alpha[Math.max(0,y-2)*w+x]/255;
+   const bx=alpha[y*w+Math.min(w-1,x+2)]/255;
+   const by=alpha[Math.min(h-1,y+2)*w+x]/255;
+   const edgeLight=(ax-bx)*15+(by-ay)*13;
+   const soft=12*Math.sin(x*.095+y*.061)+7*Math.sin(x*.21-y*.17);
+   const shade=edgeLight+soft+18*(.5-y/Math.max(1,h));
+   if(pale){
+    const v=Math.max(0,Math.min(255,228+shade*.45));
+    d[i]=v;d[i+1]=Math.max(0,v-9);d[i+2]=Math.max(0,v-23);
+   }else if(ink){
+    const v=Math.max(10,Math.min(85,31+shade*.45));
+    d[i]=v;d[i+1]=Math.min(255,v+2);d[i+2]=Math.min(255,v+5);
+   }else{
+    const k=.85+shade/200;
+    d[i]=Math.max(0,Math.min(255,r*k));
+    d[i+1]=Math.max(0,Math.min(255,gg*k));
+    d[i+2]=Math.max(0,Math.min(255,b*k));
+   }
+  }
+  g.putImageData(image,0,0);
+  assets['CLAY_'+name]=c;
+  sprites['CLAY_'+name]=sprites[name];
  }
  return frames.length;
 }
