@@ -1,6 +1,6 @@
 import {normalizeControls,DEFAULT_CONTROLS} from './controls.js';
 import {PowerupDirector} from './powerups.js';
-import {createBoss,advanceBoss,bossTarget} from './boss.js?v=boss-jump-restored';
+import {createBoss,advanceBoss,bossTarget} from './boss.js?v=boss-rig-sync-01';
 import {emitDestruction,advanceDestruction,destructionGroup} from './destruction.js';
 import {configureJet,advanceJet,jetCanFire} from './jet-motion.js';
 import {NormalRunDirector} from './normal-run.js';
@@ -100,7 +100,7 @@ export class World{
 
  if(this.director&&!this.boss)this.bossClock+=dt;
  if(!this.tutorial&&!this.boss&&(this.director?this.bossClock>=75:this.distance>=this.nextBoss)){this.boss=createBoss(this.bossCount);this.nextBoss+=750;this.bossClock=0;this.event('bossStart');}
- if(this.boss)advanceBoss(this.boss,dt,this.y-64,shots=>{this.enemyBullets.push(...shots);this.event('bossShoot');});
+ if(this.boss)advanceBoss(this.boss,dt,this.y-64,shots=>{this.enemyBullets.push(...shots);this.event('bossShoot');},(name,rate)=>this.event(name,1,rate));
  if(this.bossDeath){this.bossDeath.deathTime+=dt;this.bossDeath.x-=dt*180;if(this.bossDeath.deathTime>.7)this.bossDeath=null;}
  for(const e of this.entities){e.age+=dt;if(e.dying){e.x-=(e.moveSpeed??this.speed)*dt;e.deathTime+=dt;e.y=Math.min(FLOOR,e.y+120*dt);if(e.deathTime>.5)e.dead=true;continue;}if(e.jetMotion)advanceJet(e,dt);else{if(e.verticalSpeed)e.y+=e.verticalSpeed*dt;e.x-=(e.moveSpeed??this.speed)*dt;}
 
