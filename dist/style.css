@@ -203,3 +203,12 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
 .paused .sketch-pause .menu-art-button{width:100%;min-width:0;min-height:0;height:auto;flex:1 1 0;max-height:45px}
 .paused .sketch-pause .menu-art-button>:is(img,.menu-lettering){height:70%;max-height:28px}
 @media(max-width:600px),(max-height:550px){.paused .sketch-pause{inset:9% 25%;padding:2%}.paused .sketch-pause .actions{gap:3px}}
+
+/* Cosmetic skins selector; original menu art buttons, no gameplay geometry. */
+.skins-screen .content{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center}
+.skins-screen .content p{max-width:520px;margin:0;font-size:clamp(12px,1.8vw,18px);line-height:1.4}
+.skins-screen .skin-choices{display:flex;justify-content:center;width:100%}
+.skins-screen .skin-choice{width:min(68%,320px);height:58px;flex:none}
+.skins-screen .skin-choice[aria-pressed=true]{filter:brightness(1.15);outline:2px solid #2a7a9d;outline-offset:2px;border-radius:22px}
+.skins-screen .skin-note{opacity:.78}
+@media(max-width:600px){.skins-screen .skin-choice{height:42px}}
