@@ -84,7 +84,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH='SPAWN RESET';;
+const VERSION_SPLASH='DEATH IN FRAME';;;
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -233,7 +233,9 @@ function renderWorld(){
  if(w.boss?.phase==='pass')renderBoss(w);
  // Draw all shadows first; animation trim never moves their world anchors.
  for(const e of w.entities){if(e.x>1160||e.type==='coin'||e.type==='health'||e.type==='shield')continue;const nearFloor=e.y-e.h/2>350;if(nearFloor)img('SCN_Shadow_01',e.x-45,473,90,14,.22);}
- const actorX=PLAYER_X+(w.dead?w.deathSlide:0),actorY=w.y-64;
+ // Keep the death frames visible at the original player anchor. The prior
+ // deathSlide moved the character beyond the right edge before the clip ended.
+ const actorX=PLAYER_X,actorY=w.y-64;
  const shadowScale=Math.max(.3,1-(FLOOR-w.y)/400);img('SCN_Shadow_01',actorX-50*shadowScale,476,100*shadowScale,14,.32);
  for(const e of w.entities){if(e.x>1200)continue;const cy=e.y-e.h/2;
   if(e.type==='coin')drawFrame(frameName('CON_Coin_',frameOf('coin',e.age)),e.x,cy,.5);
@@ -261,7 +263,7 @@ function renderWorld(){
   else{ctx.strokeStyle='#1a4b7d';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(b.x-16,b.y);ctx.lineTo(b.x+6,b.y);ctx.stroke();}
  }
  for(const b of w.enemyBullets)drawFrame(b.sprite||'BUL_HeliBullet_01',b.x,b.y,1,false,1,enemyBulletRotation(b));
- const n=playerFrame(w),blink=w.invincible>0&&w.invincible<1.5&&Math.floor(w.t*10)%2;
+ const n=playerFrame(w),blink=!w.dead&&w.invincible>0&&w.invincible<1.5&&Math.floor(w.t*10)%2;
  if(!blink){if(n==='CHR_DeadFloor_01')drawFrame(n,actorX+20,FLOOR-22,1);else drawFrame(n,actorX,actorY,1);}
  if(w.invincible>1.5)drawFrame(frameName('PROP_Shield_',frameOf('shield',w.t)),actorX+30,actorY-4,w.gliding?.8:1,false,.85);
  if(w.poseTimer>0&&w.cooldown>w.weapon.rate-.065){const mx=PLAYER_X+[35,35,35,40,20,35,40,35,35,35][w.weapon.id],my=w.y-64+[-29,-10,-15,-30,-34,-29,-30,-10,-10,-10][w.weapon.id];
