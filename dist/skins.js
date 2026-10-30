@@ -31,7 +31,34 @@ export function prepareShadowSprites(assets,sprites){
    const gliding=name.startsWith('CHR_Glide_');
    const jumping=name.startsWith('CHR_Jump');
    const anchor=gliding?{x:105,y:65}:jumping?{x:85,y:34}:{x:83,y:32};
-   const ex=anchor.x+3-meta[11],ey=anchor.y-3-meta[12];
+   let ex=anchor.x+3-meta[11],ey=anchor.y-7-meta[12];
+   if(jumping){
+    // The head moves inside the original 132x143 jump frames. Locate the
+    // upper head mass in each actual sprite rather than using a world anchor.
+    // Only consider opaque runs in the upper portion, avoiding the torso.
+    let best=null;
+    const topLimit=Math.min(h,Math.max(12,Math.round(h*.53)));
+    for(let y=0;y<topLimit;y++){
+     let start=-1;
+     for(let x=0;x<=w;x++){
+      const solid=x<w&&d[(y*w+x)*4+3]>175;
+      if(solid&&start<0)start=x;
+      if((!solid||x===w)&&start>=0){
+       const len=x-start;
+       if(len>=15&&len<=80){
+        const score=y*2+Math.abs((start+x)/2-w*.60)*.12;
+        if(!best||score<best.score)best={x0:start,x1:x,y,score};
+       }
+       start=-1;
+      }
+     }
+    }
+    if(best){
+     // Eyes remain within the detected head's upper-right area.
+     ex=Math.min(best.x1-12,Math.max(best.x0+13,best.x0+(best.x1-best.x0)*.65));
+     ey=best.y+9;
+    }
+   }
    const eyeW=4,eyeH=12;
    g.save();g.fillStyle='#ffffff';
    for(const x of [ex-8,ex+7]){
