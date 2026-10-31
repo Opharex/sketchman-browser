@@ -1,6 +1,6 @@
 // Original sprite cutout rig. Extracts regions from the APK run sprite into
 // independently transformable layers while keeping their original pixels.
-import {buildPose} from './character-rig.js';
+import {buildPose,RUN_BIND_OFFSETS} from './character-rig.js';
 const BASE={root:{x:66,y:83},hips:{x:66,y:97},torso:{x:66,y:66},neck:{x:66,y:48},head:{x:66,y:31},
  shoulderL:{x:55,y:53},elbowL:{x:42,y:65},handL:{x:34,y:77},
  shoulderR:{x:77,y:53},elbowR:{x:90,y:65},handR:{x:98,y:77},
@@ -16,11 +16,11 @@ const PARTS=[
  ['handL','handL',34,78,12,13],['handR','handR',98,78,12,13],
  ['neck','neck',66,49,11,9],['head','head',66,29,27,27]
 ];
-export function extractOriginalLayers(image,rect={sx:477,sy:133,sw:104,sh:104,trimX:9,trimY:6}){
+export function extractOriginalLayers(image,rect={sx:477,sy:133,sw:104,sh:104,trimX:9,trimY:6},bindOffsets=RUN_BIND_OFFSETS){
  const source=document.createElement('canvas');source.width=132;source.height=143;
  const ctx=source.getContext('2d',{willReadFrequently:true});
  ctx.drawImage(image,rect.sx,rect.sy,rect.sw,rect.sh,rect.trimX,rect.trimY,rect.sw,rect.sh);
- const pixels=ctx.getImageData(0,0,132,143),parts=PARTS.map(([id,bone,x,y,rx,ry])=>({id,bone,x,y,rx,ry,canvas:document.createElement('canvas')}));
+ const pixels=ctx.getImageData(0,0,132,143),rest=buildPose({},bindOffsets),parts=PARTS.map(([id,bone,x,y,rx,ry])=>({id,bone,x:rest[bone]?.x??x,y:rest[bone]?.y??y,rx,ry,canvas:document.createElement('canvas')}));
  const imgs=parts.map(p=>{p.canvas.width=132;p.canvas.height=143;return new ImageData(132,143)});
  for(let y=0;y<143;y++)for(let x=0;x<132;x++){
   const i=(y*132+x)*4;if(!pixels.data[i+3])continue;
@@ -36,8 +36,8 @@ export function extractOriginalLayers(image,rect={sx:477,sy:133,sw:104,sh:104,tr
 }
 // Bind-pose correction: each artwork layer uses the same rest transform as
 // the skeleton. Zero rotation now reproduces the original APK sprite exactly.
-export function drawOriginalRig(ctx,parts,rotations={},offsets={}){
- const joints=buildPose(rotations,offsets),rest=buildPose();
+export function drawOriginalRig(ctx,parts,rotations={},offsets=RUN_BIND_OFFSETS){
+ const joints=buildPose(rotations,offsets),rest=buildPose({},offsets);
  for(const p of parts){
   const j=joints[p.bone],bind=rest[p.bone];if(!j||!bind)continue;
   ctx.save();
