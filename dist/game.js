@@ -15,7 +15,7 @@ import {effectSound,EFFECT_TEXTURES} from './destruction.js';
 import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
-import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites,prepareClaySprites} from './skins.js?v=approved-clay-01';
+import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites,prepareClaySprites} from './skins.js?v=approved-clay-02';
 import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=boss-rig-sync-01';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const BOSS_TEST=new URLSearchParams(location.search).get('bossTest')==='1';
