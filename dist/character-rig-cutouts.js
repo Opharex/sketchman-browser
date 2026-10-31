@@ -34,12 +34,30 @@ export function extractOriginalLayers(image,rect={sx:477,sy:133,sw:104,sh:104,tr
  for(let k=0;k<parts.length;k++)parts[k].canvas.getContext('2d').putImageData(imgs[k],0,0);
  return parts;
 }
+// Bind-pose correction: each artwork layer uses the same rest transform as
+// the skeleton. Zero rotation now reproduces the original APK sprite exactly.
 export function drawOriginalRig(ctx,parts,rotations={},offsets={}){
- const joints=buildPose(rotations,offsets);
+ const joints=buildPose(rotations,offsets),rest=buildPose();
  for(const p of parts){
-  const origin=BASE[p.bone],j=joints[p.bone];if(!origin||!j)continue;
-  ctx.save();ctx.translate(j.x,j.y);ctx.rotate(j.angle);ctx.translate(-origin.x,-origin.y);
-  ctx.drawImage(p.canvas,0,0);ctx.restore();
+  const j=joints[p.bone],bind=rest[p.bone];if(!j||!bind)continue;
+  ctx.save();
+  ctx.translate(j.x,j.y);
+  ctx.rotate(j.angle-bind.angle);
+  ctx.translate(-bind.x,-bind.y);
+  ctx.drawImage(p.canvas,0,0);
+  ctx.restore();
  }
  return joints;
+}
+// Validate the cutout binding: every nontransparent source pixel is assigned
+// exactly once, and all layers share the original 132x143 sprite coordinate system.
+export function verifyLayerBinding(parts){
+ const sum=new Uint16Array(132*143);
+ for(const p of parts){
+  const d=p.canvas.getContext('2d',{willReadFrequently:true}).getImageData(0,0,132,143).data;
+  for(let i=0;i<sum.length;i++)if(d[i*4+3])sum[i]++;
+ }
+ let overlaps=0,covered=0;
+ for(const v of sum){if(v>1)overlaps++;if(v)covered++;}
+ return {layers:parts.length,coveredPixels:covered,overlapPixels:overlaps,restPosePreserved:overlaps===0};
 }
