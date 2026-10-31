@@ -15,14 +15,16 @@ import {effectSound,EFFECT_TEXTURES} from './destruction.js';
 import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
-import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites,prepareClaySprites} from './skins.js?v=approved-clay-02';
+import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites} from './skins.js?v=skins-cleanup-01';
 import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=boss-rig-sync-01';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const BOSS_TEST=new URLSearchParams(location.search).get('bossTest')==='1';
 let bossRig=null;
 const SKIN_KEY='sketchman-browser-skin-v1';
 let selectedSkin=DEFAULT_SKIN;
-try{selectedSkin=getSkin(localStorage.getItem(SKIN_KEY)).id;}catch{}
+try{const storedSkin=localStorage.getItem(SKIN_KEY);selectedSkin=getSkin(storedSkin).id;
+ if(storedSkin==='clay')localStorage.setItem(SKIN_KEY,DEFAULT_SKIN);
+}catch{}
 // A test link can select a skin without overwriting the player's saved preference.
 const previewSkin=new URLSearchParams(location.search).get('skin');
 if(previewSkin&&SKINS.some(s=>s.id===previewSkin))selectedSkin=previewSkin;
@@ -99,7 +101,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'APPROVED CLAY SKIN';;;
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'SKINS CLEANUP 01';;;
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -227,7 +229,7 @@ function renderOriginalOptions(force=false){
 }
 function prepareMenus(){
  prepareOptionsPanels();getMainMenuPaint();versionSplashImage=menuLettering(VERSION_SPLASH);
- for(const label of ['More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow','Approved Clay'])menuLettering(label);
+ for(const label of ['More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow'])menuLettering(label);
  for(const code of [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c=>'Key'+c).concat([...'0123456789'].flatMap(c=>['Digit'+c,'Numpad'+c]),['Space','Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Backspace',...Object.values(save.settings.controls)]))menuLettering(keyLabel(code));
  // These source layers are now retired; the renderer only keeps finished artwork.
  for(const name of ['IMM_MainMenu_01','IMM_Options_01','IMM_Options_MusicON_01','IMM_Options_SoundON_01']){const source=assets[name];source.width=source.height=0;delete assets[name];}
@@ -477,7 +479,7 @@ async function boot(){try{const bossAudioReady=soundPlayer.preload([BOSS_SHOT_SO
  await Promise.all(Array.from({length:2},async()=>{while(queue.length){const sheet=queue.shift();await new Promise((resolve,reject)=>{
   const im=new Image();im.onload=()=>{try{for(const n of sheet.names){const v=sprites[n].v,c=document.createElement('canvas');c.width=v[7];c.height=v[8];const context=c.getContext('2d');if(!context)throw new Error('Graphics memory unavailable');context.drawImage(im,v[1],v[2],v[7],v[8],0,0,v[7],v[8]);assets[n]=c;}loaded++;atlasProgress=loaded/sheets.size*100;progress();resolve();}catch(error){reject(error);}finally{im.onload=null;im.onerror=null;im.removeAttribute('src');}};
   im.onerror=()=>reject(new Error('Missing atlas: '+sheet.atlas));im.src=`assets/Graphics/${sheet.atlas}/${sheet.atlas}_${sheet.index+1}.png`;
- });}}));bossRig=createBossRig(assets.ENM_EnemyBOSS_Idle_01,{trimmed:true});prepareShadowSprites(assets,sprites);await prepareClaySprites(assets,sprites);
+ });}}));bossRig=createBossRig(assets.ENM_EnemyBOSS_Idle_01,{trimmed:true});prepareShadowSprites(assets,sprites);
  await Promise.all([...new Set([...EFFECT_TEXTURES,'ParExpStar_01','ParCoin01','gamePaper'])].map(n=>new Promise(resolve=>{const im=new Image();im.onload=()=>{assets[n]=im;resolve();};im.onerror=resolve;im.src=n==='gamePaper'?'assets/Graphics/LOC_Locations/SCN_Background.jpg':`assets/Graphics/Particles/${n}.png`;})));// Every UI image (including hover textures and HUD icons) is decoded before handoff.
  uiImages=await uiReady;await bossAudioReady;
  const menuFont=uiImages.get('assets/Graphics/Fonts/S1_Dialogs22_1.png');setMenuFont(menuFont);prepareMenus();updateControlHint();$('#progress').value=100;$('#loadStatus').textContent='Ready';await intro;$('#loading').remove();menu();last=performance.now();requestAnimationFrame(frame);}catch(e){$('#loadStatus').textContent='Could not load the game. Reload to try again.';console.error(e);}}
