@@ -1,24 +1,153 @@
-<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sketchman Character Rig Lab</title><style>body{margin:0;background:#eae6da;color:#183a54;font-family:system-ui}main{max-width:920px;margin:auto;padding:16px}h1{font-size:24px}canvas{width:100%;max-width:620px;background:#fffaf0;border:3px solid #234d6b;box-sizing:border-box}button,select{padding:9px;margin:4px}input[type=range]{width:230px}label{display:inline-block;margin:6px}p{line-height:1.5}</style><main><h1>SKETCHMAN · CHARACTER RIG LAB v3</h1><p>Reusable 18-joint hierarchy. Original APK run-frame pixels are separated into independently transformable cutout layers and linked to bones. Drag the sliders to test their motion. The rig now starts from run-frame-specific joint coordinates rather than a neutral standing pose. Drag markers to correct alignment against the actual sprite. Layer boundaries still need cleanup.</p><canvas id="c" width="620" height="480"></canvas><div><button id="reset">Reset pose</button><button id="walk">Walk cycle</button><label><input id="overlay" type="checkbox" checked> Show joints</label><label><input id="ref" type="checkbox"> Show original sprite reference</label></div><div><label><input type="checkbox" id="original" checked> Use original sprite cutout layers</label></div><p>Drag joint dots directly onto the matching anatomical landmarks in the original sprite. Joint placement is saved in this browser. Turn on the sprite reference to calibrate.</p><button id="savebind">Save joint positions</button><button id="rebind">Rebuild artwork layers</button><div id="sliders"></div><p id="state"></p><p>Cutout prototype, not yet production-ready: automatic segmentation can create seams and the original animation poses still need manual cleanup. No changes to the playable game or its collisions.</p></main><script type="module">
-import {BONES,buildPose,drawRig,drawSkin,RUN_BIND_OFFSETS} from './character-rig.js?v=run-pose-v3';
-import {extractOriginalLayers,drawOriginalRig,verifyLayerBinding} from './character-rig-cutouts.js?v=run-pose-v3';
-const c=document.querySelector('#c'),g=c.getContext('2d'),sliders=document.querySelector('#sliders'),state=document.querySelector('#state');let pose={},walk=false,t=0,last=0,offsets=JSON.parse(localStorage.getItem('sketchman-run-bind-v3')||'null')||structuredClone(RUN_BIND_OFFSETS),drag=null;
-for(const id of ['head','torso','shoulderL','elbowL','shoulderR','elbowR','thighL','kneeL','thighR','kneeR','weapon']){
- const l=document.createElement('label');l.textContent=id+' ';const input=document.createElement('input');input.type='range';input.min=-90;input.max=90;input.value=0;input.oninput=()=>{walk=false;pose[id]=+input.value*Math.PI/180};l.append(input);sliders.append(l);
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sketchman · Original Artwork Rig Lab v4</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#173653;background:#ebe8dc}
+*{box-sizing:border-box}body{margin:0}main{max-width:1000px;margin:auto;padding:16px 14px 55px}
+h1{font-size:clamp(19px,4vw,27px);margin:5px 0 8px}h2{font-size:17px;margin:16px 0 6px}
+p{max-width:800px;line-height:1.48;margin:8px 0 13px}
+.workbench{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.canvas-wrap{flex:1 1 520px;min-width:0}
+canvas{display:block;background:#faf9f3;border:2px solid #2b5671;border-radius:5px}
+#c{width:100%;max-width:640px;touch-action:none;cursor:crosshair}
+.reference{flex:0 1 280px;min-width:150px}
+#reference{width:100%;max-width:264px;image-rendering:auto}
+.caption{font-size:12px;color:#486070;margin:7px 0}
+.toolbar{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}
+button{border:1px solid #255571;background:#255571;color:white;border-radius:6px;padding:9px 12px;font:inherit;cursor:pointer}
+button.secondary{background:#fff;color:#21465e}
+label{display:inline-flex;align-items:center;gap:7px;margin:6px 12px 6px 0;font-size:14px}
+input[type=checkbox]{width:17px;height:17px}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:2px 10px}
+.controls label{display:flex;flex-direction:column;align-items:stretch;margin:5px 0}
+.controls input{width:100%}
+.status{padding:10px 12px;background:#fff;border:1px solid #ced6d7;border-radius:6px;font-size:14px}
+.tip{font-size:13px;color:#536678}
+</style></head><body><main>
+<h1>SKETCHMAN · POSE-MATCHED RIG v4</h1>
+<p>This rig is aligned to the <strong>actual CHR_Run_01 running pose</strong>, not a standing anatomical model. Head, shoulders, elbows, hands, hips, knees, and feet are positioned against the original mobile game artwork. Drag an individual joint if you want to refine its anchor.</p>
+<div class="workbench">
+<div class="canvas-wrap"><canvas id="c" width="640" height="580" aria-label="Character sprite with attached skeleton"></canvas><p class="caption">Live original-art cutouts with 18-joint overlay. Drag the small dots to adjust joint positions.</p></div>
+<div class="reference"><h2>Original APK frame</h2><canvas id="reference" width="264" height="286"></canvas><p class="caption">Unmodified CHR_Run_01, enlarged exactly 2×.</p>
+<h2>View</h2>
+<label><input id="overlay" type="checkbox" checked>Show skeleton</label>
+<label><input id="labels" type="checkbox">Show joint names</label>
+<label><input id="ghost" type="checkbox">Ghost original behind posed art</label>
+<label><input id="original" type="checkbox" checked>Use original art cutouts</label></div>
+</div>
+<div class="toolbar"><button id="reset">Restore traced pose</button><button id="walk" class="secondary">Test joint movement</button><button id="savebind" class="secondary">Save joint placement</button><button id="rebind" class="secondary">Rebuild cutouts</button></div>
+<div id="state" class="status" role="status">Loading original artwork...</div>
+<h2>Adjust bone rotations</h2>
+<div id="sliders" class="controls"></div>
+<p class="tip"><strong>Important:</strong> The source-art bind pose is now anatomically traced. Its automatically split layers may still show seams when bent far away from that pose. That is separate from joint placement, and the rig is still a test tool, not yet wired into gameplay.</p>
+</main>
+<script type="module">
+import {BONES,buildPose,drawRig,drawSkin,RUN_BIND_POINTS,RIG_VERSION} from './character-rig.js?v=pose-match-v4';
+import {extractOriginalLayers,drawOriginalRig,verifyLayerBinding,RUN_SPRITE_RECT} from './character-rig-cutouts.js?v=pose-match-v4';
+const c=document.querySelector('#c'),ctx=c.getContext('2d');
+const ref=document.querySelector('#reference'),refctx=ref.getContext('2d');
+const sliders=document.querySelector('#sliders'),status=document.querySelector('#state');
+const SLIDER_IDS=['head','neck','torso','shoulderL','elbowL','handL','shoulderR','elbowR','handR','thighL','kneeL','footL','thighR','kneeR','footR'];
+const STORE='sketchman-run-bind-v4';
+const origin={x:77,y:37},zoom=3.5;
+let offsets={},pose={},parts=null,validation=null,loading='Loading original frame...',moving=false,time=0,last=0,drag=null;
+try{const stored=JSON.parse(localStorage.getItem(STORE)||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))offsets=stored;}catch{}
+for(const id of SLIDER_IDS){
+ const label=document.createElement('label');
+ const txt=document.createElement('span');txt.textContent=id;
+ const input=document.createElement('input');
+ input.type='range';input.min=-85;input.max=85;input.value=0;
+ input.dataset.bone=id;
+ input.addEventListener('input',()=>{moving=false;pose[id]=Number(input.value)*Math.PI/180;});
+ label.append(txt,input);sliders.append(label);
 }
-document.querySelector('#reset').onclick=()=>{walk=false;pose={};for(const e of sliders.querySelectorAll('input'))e.value=0};
-document.querySelector('#walk').onclick=()=>walk=!walk;
-const im=new Image();let layers=null,binding=null;im.onload=()=>{layers=extractOriginalLayers(im,undefined,offsets);binding=verifyLayerBinding(layers);};im.src='assets/Graphics/CHR_SketchMan/CHR_SketchMan_2.png';
-document.querySelector('#ref').checked=true;
-const localPoint=e=>{const r=c.getBoundingClientRect();return {x:((e.clientX-r.left)/r.width*620-105)/3.15,y:((e.clientY-r.top)/r.height*480-38)/3.15}};
-c.addEventListener('pointerdown',e=>{const p=localPoint(e),j=buildPose({},offsets);let nearest=null,d=100;for(const [id,v]of Object.entries(j)){const n=Math.hypot(v.x-p.x,v.y-p.y);if(n<d){d=n;nearest=id}}if(nearest){drag=nearest;c.setPointerCapture(e.pointerId);walk=false;pose={}}});
-c.addEventListener('pointermove',e=>{if(!drag)return;const p=localPoint(e),j=buildPose({},offsets),bone=BONES.find(b=>b.id===drag),parent=bone.parent?j[bone.parent]:null;offsets[drag]={x:p.x-(parent?.x||0)-bone.x,y:p.y-(parent?.y||0)-bone.y};});
-c.addEventListener('pointerup',()=>drag=null);
-document.querySelector('#savebind').onclick=()=>localStorage.setItem('sketchman-run-bind-v3',JSON.stringify(offsets));
-document.querySelector('#rebind').onclick=()=>{if(im.complete&&im.naturalWidth){layers=extractOriginalLayers(im,undefined,offsets);binding=verifyLayerBinding(layers)}};
-function tick(ms){const dt=Math.min(.1,(ms-last)/1000||0);last=ms;if(walk){t+=dt*7;pose={thighL:Math.sin(t)*.5,thighR:-Math.sin(t)*.5,kneeL:Math.max(0,-Math.sin(t))*.65,kneeR:Math.max(0,Math.sin(t))*.65,shoulderL:-Math.sin(t)*.3,shoulderR:Math.sin(t)*.3};}
-g.clearRect(0,0,c.width,c.height);g.save();g.translate(105,38);g.scale(3.15,3.15);
-if(document.querySelector('#ref').checked&&im.complete&&im.naturalWidth){g.globalAlpha=.32;g.drawImage(im,477,133,104,104,9,6,104,104);g.globalAlpha=1;}
-const joints=buildPose(pose,offsets);if(document.querySelector('#original').checked&&layers)drawOriginalRig(g,layers,pose,offsets);else drawSkin(g,joints);if(document.querySelector('#overlay').checked)drawRig(g,joints);g.restore();
-state.textContent='Bones: '+BONES.length+' | Artwork layers: '+(binding?.layers||'loading')+' | Pixel overlap: '+(binding?.overlapPixels??'loading')+' | Pose: '+(walk?'animated walk':'manual')+'.';requestAnimationFrame(tick)}
+const atlas=new Image();
+function rebuild(){
+ if(!atlas.complete||!atlas.naturalWidth)return;
+ parts=extractOriginalLayers(atlas,RUN_SPRITE_RECT,offsets);
+ validation=verifyLayerBinding(parts,atlas,RUN_SPRITE_RECT,offsets);
+ loading='Original source loaded';
+}
+atlas.onload=()=>{
+ refctx.clearRect(0,0,264,286);
+ refctx.imageSmoothingEnabled=true;
+ refctx.drawImage(atlas,477,133,104,104,18,12,208,208);
+ // Reference displays 132x143 sprite at 2×, including trim offset.
+ refctx.clearRect(0,0,264,286);
+ refctx.drawImage(atlas,477,133,104,104,18,12,208,208);
+ rebuild();
+};
+atlas.onerror=()=>{loading='Failed to load original APK artwork';};
+atlas.src='assets/Graphics/CHR_SketchMan/CHR_SketchMan_2.png';
+function reset(){
+ moving=false;pose={};offsets={};
+ for(const input of sliders.querySelectorAll('input'))input.value=0;
+ localStorage.removeItem(STORE);rebuild();
+}
+document.querySelector('#reset').onclick=reset;
+document.querySelector('#walk').onclick=()=>{moving=!moving;if(!moving)pose={};};
+document.querySelector('#savebind').onclick=()=>{localStorage.setItem(STORE,JSON.stringify(offsets));rebuild();};
+document.querySelector('#rebind').onclick=rebuild;
+function screenToLocal(e){
+ const b=c.getBoundingClientRect();
+ return {x:((e.clientX-b.left)*c.width/b.width-origin.x)/zoom,
+         y:((e.clientY-b.top)*c.height/b.height-origin.y)/zoom};
+}
+c.addEventListener('pointerdown',e=>{
+ const pt=screenToLocal(e),joints=buildPose({},offsets);let closest=null,d=10;
+ for(const bone of BONES){
+  if(bone.id==='weapon'||bone.id==='root'||bone.id==='hips')continue;
+  const p=joints[bone.id],v=Math.hypot(pt.x-p.x,pt.y-p.y);
+  if(v<d){d=v;closest=bone.id;}
+ }
+ if(closest){
+  drag=closest;moving=false;pose={};
+  for(const input of sliders.querySelectorAll('input'))input.value=0;
+  c.setPointerCapture(e.pointerId);
+  e.preventDefault();
+ }
+});
+c.addEventListener('pointermove',e=>{
+ if(!drag)return;
+ const pt=screenToLocal(e),joints=buildPose({},offsets);
+ const bone=BONES.find(b=>b.id===drag);
+ const parent=bone.parent?joints[bone.parent]:null;
+ offsets[drag]={x:pt.x-(parent?.x||0)-bone.x,y:pt.y-(parent?.y||0)-bone.y};
+ e.preventDefault();
+});
+function release(){if(!drag)return;drag=null;localStorage.setItem(STORE,JSON.stringify(offsets));rebuild();}
+c.addEventListener('pointerup',release);c.addEventListener('pointercancel',release);
+function tick(now){
+ const dt=Math.min(.06,(now-last)/1000||0);last=now;
+ if(moving){
+  time+=dt*5.3;
+  pose={
+   thighL:Math.sin(time)*.28,thighR:-Math.sin(time)*.28,
+   kneeL:Math.max(0,-Math.sin(time))*.32,kneeR:Math.max(0,Math.sin(time))*.32,
+   shoulderL:-Math.sin(time)*.20,shoulderR:Math.sin(time)*.20,
+   elbowL:Math.sin(time+.5)*.10,elbowR:Math.sin(time-.4)*.10
+  };
+ }
+ ctx.clearRect(0,0,c.width,c.height);
+ ctx.save();ctx.translate(origin.x,origin.y);ctx.scale(zoom,zoom);
+ if(document.querySelector('#ghost').checked&&atlas.complete&&atlas.naturalWidth){
+  ctx.save();ctx.globalAlpha=.25;
+  ctx.drawImage(atlas,477,133,104,104,9,6,104,104);
+  ctx.restore();
+ }
+ const joints=buildPose(pose,offsets);
+ if(parts&&document.querySelector('#original').checked)drawOriginalRig(ctx,parts,pose,offsets);
+ else drawSkin(ctx,joints);
+ if(document.querySelector('#overlay').checked)drawRig(ctx,joints,{labels:document.querySelector('#labels').checked});
+ ctx.restore();
+ const mismatch=validation?.restPoseMismatchPixels;
+ status.textContent=loading+
+  ' | '+RIG_VERSION+
+  ' | '+BONES.length+' linked joints'+
+  ' | '+(validation?.layers??0)+' bound artwork parts'+
+  ' | Rest-pose pixel mismatch: '+(mismatch??'checking')+
+  ' | '+(moving?'Motion test':'Source pose');
+ requestAnimationFrame(tick);
+}
 requestAnimationFrame(tick);
-</script></html>
+</script></body></html>
