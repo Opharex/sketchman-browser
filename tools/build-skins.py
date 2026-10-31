@@ -977,6 +977,33 @@ def build(root=DIST, output=OUTPUT):
             atlas.paste(paint, region[:2])
             total += 1
         atlas.save(output / f"{skin}.png", optimize=True, compress_level=9)
+
+        if skin == "obsidian_ember":
+            # Actual production-atlas pixels, not a second art generator.
+            # This contact sheet is a build artifact for visual QA at native
+            # sprite scale and can be inspected on GitHub Pages.
+            from io import BytesIO
+            import base64
+            samples=["CHR_Run_01","CHR_Run_02","CHR_Jump_01",
+                     "CHR_Glide_01","CHR_RunNGun_01"]
+            columns=len(samples)
+            sheet=Image.new("RGBA",(132*columns,143),(221,228,235,255))
+            for i,key in enumerate(samples):
+                if key not in frames:
+                    raise AssertionError("Missing representative Obsidian QA pose "+key)
+                v=frames[key][0]
+                sx,sy,sw,sh=regions[key]
+                frame_image=atlas.crop((sx,sy,sx+sw,sy+sh))
+                sheet.alpha_composite(frame_image,(132*i+v[11],v[12]))
+            qa_path=output/"obsidian-material-qa.png"
+            sheet.save(qa_path,optimize=True)
+            # The base64 is intentionally limited to a small original-scale
+            # contact sheet so deployment logs can be visually reviewed.
+            stream=BytesIO()
+            sheet.save(stream,format="PNG",optimize=True)
+            print("OBSIDIAN_MATERIAL_QA_BASE64:"+base64.b64encode(
+                stream.getvalue()).decode("ascii"),flush=True)
+
         # Thumbnail uses the ACTUAL painted CHR_Run_01 pixels, not concept art.
         frame = frames[POSE_FRAME]
         region = regions[POSE_FRAME]
