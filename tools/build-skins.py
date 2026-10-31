@@ -165,6 +165,169 @@ def paint_frame(source: Image.Image, xoffset: int, yoffset: int, skin: str, mat)
     return out
 
 
+
+# Crimson Bolt is intentionally a separate material pipeline. Do not modify
+# the other eight skin algorithms while tuning this one. Its approved concept:
+# dark burgundy ink, a vivid ruby-red candy-metal body, elongated brilliant
+# specular highlights, and a completely blank ivory-white head interior.
+def _crimson_face(source: Image.Image, xoff: int, yoff: int, frame_name: str):
+    """Find the enclosed white face in the ORIGINAL PNG, not an invented head.
+
+    Original APK player sprites have a bright white circular face bounded by
+    dark-blue ink. We select the most round, substantial white connected area,
+    then render that area ivory instead of incorrectly painting it ruby.
+    """
+    w, h = source.size
+    px = source.load()
+    mask = bytearray(w * h)
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a > 178 and min(r, g, b) > 188 and max(r, g, b) - min(r, g, b) < 40:
+                mask[y * w + x] = 1
+    seen = bytearray(w * h)
+    best = None
+    hints = (("Run", (80, 27)), ("Jump", (84, 37)),
+             ("Glide", (105, 63)), ("SuperSketchman", (104, 60)))
+    hint = next((point for prefix, point in hints if frame_name.startswith("CHR_" + prefix)), None)
+    for i in range(w * h):
+        if not mask[i] or seen[i]:
+            continue
+        stack = [i]
+        seen[i] = 1
+        count = 0
+        sx = sy = 0
+        minx = w
+        miny = h
+        maxx = maxy = -1
+        while stack:
+            v = stack.pop()
+            y, x = divmod(v, w)
+            count += 1
+            sx += x
+            sy += y
+            minx = min(minx, x)
+            miny = min(miny, y)
+            maxx = max(maxx, x)
+            maxy = max(maxy, y)
+            for j in (v - 1, v + 1, v - w, v + w):
+                if j < 0 or j >= w * h:
+                    continue
+                yy, xx = divmod(j, w)
+                if abs(xx - x) + abs(yy - y) != 1:
+                    continue
+                if mask[j] and not seen[j]:
+                    seen[j] = 1
+                    stack.append(j)
+        dx, dy = maxx - minx + 1, maxy - miny + 1
+        if count < 28 or dx < 9 or dy < 9 or dx > 40 or dy > 40:
+            continue
+        aspect = min(dx, dy) / max(dx, dy)
+        density = count / (dx * dy)
+        if aspect < .60 or density < .36:
+            continue
+        cx, cy = sx / count, sy / count
+        score = count * aspect ** 2 * density
+        if hint:
+            distance = math.hypot(cx + xoff - hint[0], cy + yoff - hint[1])
+            score -= distance * .38
+        if best is None or score > best["score"]:
+            best = dict(score=score, cx=cx, cy=cy, rx=dx / 2, ry=dy / 2, size=count)
+    return best
+
+
+def _crimson_ink_distance(source: Image.Image):
+    """Distance from pale interior pixels to original dark navy outlines.
+
+    This creates long specular strokes that follow the original body contours,
+    instead of arbitrary geometric light stripes unrelated to the animation.
+    """
+    w, h = source.size
+    px = source.load()
+    far = w + h + 5
+    distance = [far] * (w * h)
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a < 160 or (.21 * r + .72 * g + .07 * b) < 105:
+                distance[y * w + x] = 0
+    for y in range(h):
+        for x in range(w):
+            i = y * w + x
+            if x:
+                distance[i] = min(distance[i], distance[i - 1] + 1)
+            if y:
+                distance[i] = min(distance[i], distance[i - w] + 1)
+    for y in range(h - 1, -1, -1):
+        for x in range(w - 1, -1, -1):
+            i = y * w + x
+            if x + 1 < w:
+                distance[i] = min(distance[i], distance[i + 1] + 1)
+            if y + 1 < h:
+                distance[i] = min(distance[i], distance[i + w] + 1)
+    return distance
+
+
+def paint_crimson_frame(source: Image.Image, xoff: int, yoff: int, frame_name: str):
+    """Paint glossy metallic red, preserving exact original alpha and pose."""
+    source = source.convert("RGBA")
+    w, h = source.size
+    original = source.load()
+    out = Image.new("RGBA", source.size)
+    dst = out.load()
+    face = _crimson_face(source, xoff, yoff, frame_name)
+    dist = _crimson_ink_distance(source)
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = original[x, y]
+            if not a:
+                continue
+            luma = .2126 * r + .7152 * g + .0722 * b
+            fullx, fully = x + xoff, y + yoff
+            # The original blank white face is the identifying feature of
+            # Crimson Bolt. Keep its elliptical volume and subtle cool shade.
+            if face:
+                dx = (x - face["cx"]) / max(1, face["rx"] + .2)
+                dy = (y - face["cy"]) / max(1, face["ry"] + .2)
+                radial = math.hypot(dx, dy)
+                if radial < 1.12 and luma > 172:
+                    right = max(0., min(1., dx * .65 + radial * .16))
+                    shade = max(0., min(.65, right * .51))
+                    col = mix((255, 255, 255), (214, 213, 231), shade)
+                    dst[x, y] = (*col, a)
+                    continue
+                if radial < 1.52 and luma <= 172:
+                    # Dark burgundy outside; narrow cherry-red inner rim.
+                    inner_edge = max(0., 1.0 - abs(radial - 1.13) / .29)
+                    col = mix((69, 0, 12), (243, 7, 37), inner_edge * .76)
+                    dst[x, y] = (*col, a)
+                    continue
+
+            if luma <= 80:
+                # Rich near-black red ink defines the precise original outline.
+                col = mix((56, 0, 9), (97, 0, 15), luma / 80)
+            elif luma <= 165:
+                # Volume under the glossy surface stays deep, saturated ruby.
+                col = mix((96, 0, 15), (208, 0, 26), (luma - 80) / 85)
+            else:
+                t = (luma - 165) / 90
+                col = mix((208, 0, 26), (253, 11, 40), t)
+                # The white hot reflections follow the limb's *own* centerline.
+                d = dist[y * w + x]
+                streak = max(0., 1.0 - abs(d - 3.2) / 1.7)
+                # Soft highlight breaks add the elongated liquid-metal facets
+                # from the approved example without changing any silhouette.
+                shimmer = .76 + .24 * math.sin(fullx * .17 + fully * .085) ** 2
+                streak *= shimmer
+                if streak > .24:
+                    col = mix(col, (255, 229, 233), min(.78, (streak - .24) * 1.03))
+                # Small concentrated white glints on the brightest surfaces.
+                glint = max(0., 1. - abs(d - 3.9) / .8)
+                if glint > .72 and math.sin(fullx * .20 - fully * .13) > .62:
+                    col = mix(col, (255, 250, 250), (glint - .72) * .81)
+            dst[x, y] = (*col, a)
+    return out, face
+
 def pack(frames, width=ATLAS_WIDTH):
     # Same packing for all nine variants, based on ORIGINAL trim sizes.
     # The original 132x143 frame-space positions remain in sprites.json.
@@ -216,7 +379,12 @@ def build(root=DIST, output=OUTPUT):
         total = 0
         for name in names:
             v, src = frames[name]
-            paint = paint_frame(src, v[11], v[12], skin, material)
+            if skin == "crimson_bolt":
+                paint, head = paint_crimson_frame(src, v[11], v[12], name)
+                if name == POSE_FRAME:
+                    print("Crimson face registration:", head, flush=True)
+            else:
+                paint = paint_frame(src, v[11], v[12], skin, material)
             # Exact alpha-preservation, including antialiased edges.
             if paint.getchannel("A").tobytes() != src.getchannel("A").tobytes():
                 raise AssertionError(f"Alpha and silhouette changed: {skin} {name}")
