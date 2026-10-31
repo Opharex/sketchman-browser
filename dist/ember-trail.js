@@ -37,7 +37,7 @@ export class EmberTrail{
   p.worldX=scroll+playerX-33-rand(1)*18;
   p.y=y-9+(rand(2)-.5)*17;
   p.kind=rand(4)>.72?1:0; // flame body or small drifting spark
-  p.life=p.maxLife=p.kind?.32+rand(5)*.45:.38+rand(6)*.30;
+  p.life=p.maxLife=(p.kind ? .32+rand(5)*.45 : .38+rand(6)*.30);
   p.vx=-25-rand(7)*30;
   p.vy=-(p.kind?29:16)-rand(8)*26;
   p.size=(p.kind?1.1:4.1)+(rand(9)*(p.kind?1.8:5.1));
