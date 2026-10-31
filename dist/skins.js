@@ -1,14 +1,11 @@
-import {prepareApprovedClaySprites} from './approved-clay-skin.js?v=approved-clay-02';
-// Original and Shadow use original APK assets. Clay is newly modeled 2D artwork
-// rendered from the shared character bone hierarchy. No physics are modified.
+// Cosmetic skins share original APK animation frames and do not modify physics.
 export const SKINS=Object.freeze([
  {id:'default',name:'Original Sketchman'},
- {id:'shadow',name:'Shadow'},
- {id:'clay',name:'Approved Clay'}
+ {id:'shadow',name:'Shadow'}
 ]);
 export const DEFAULT_SKIN='default';
 export function getSkin(id){return SKINS.find(s=>s.id===id)||SKINS[0];}
-export function cosmeticFrame(frame,skinId){return skinId==='shadow'?'SHADOW_'+frame:skinId==='clay'?'CLAY_'+frame:frame;}
+export function cosmeticFrame(frame,skinId){return skinId==='shadow'?'SHADOW_'+frame:frame;}
 // Build an identical alpha mask for every original player frame and place white eyes
 // inside the head region. The generated sprites never modify original frame canvases.
 export function prepareShadowSprites(assets,sprites){
@@ -75,6 +72,3 @@ export function prepareShadowSprites(assets,sprites){
  return frames.length;
 }
 
-
-// Clay visuals come from the shared 18-joint Sketchman rig, not source-sprite recoloring.
-export function prepareClaySprites(assets,sprites){return prepareApprovedClaySprites(assets,sprites);}
