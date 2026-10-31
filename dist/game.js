@@ -23,6 +23,9 @@ let bossRig=null;
 const SKIN_KEY='sketchman-browser-skin-v1';
 let selectedSkin=DEFAULT_SKIN;
 try{selectedSkin=getSkin(localStorage.getItem(SKIN_KEY)).id;}catch{}
+// A test link can select a skin without overwriting the player's saved preference.
+const previewSkin=new URLSearchParams(location.search).get('skin');
+if(previewSkin&&SKINS.some(s=>s.id===previewSkin))selectedSkin=previewSkin;
 function equipSkin(id){selectedSkin=getSkin(id).id;try{localStorage.setItem(SKIN_KEY,selectedSkin);}catch{}}
 const KEY='sketchman-browser-v1';let save=freshSave(),storageOK=true;try{save=normalizeSave(JSON.parse(localStorage.getItem(KEY)));}catch{};
 try{const legacy=JSON.parse(localStorage.getItem('sketchman-keybinds'));if(legacy&&!JSON.parse(localStorage.getItem(KEY))?.settings?.controls){for(const action of ['jump','fire','pause']){const next=bindControl(save.settings.controls,action,legacy[action]);if(next)save.settings.controls=next;}persist();}}catch{}
