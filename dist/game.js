@@ -15,7 +15,7 @@ import {effectSound,EFFECT_TEXTURES} from './destruction.js';
 import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
-import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites,prepareClaySprites} from './skins.js?v=clay-redesign-02';
+import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites,prepareClaySprites} from './skins.js?v=clay-rig-v1';
 import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=boss-rig-sync-01';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const BOSS_TEST=new URLSearchParams(location.search).get('bossTest')==='1';
@@ -96,7 +96,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'CLAY REDESIGN 02';;;
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'RIGGED CLAY 01';;;
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -224,7 +224,7 @@ function renderOriginalOptions(force=false){
 }
 function prepareMenus(){
  prepareOptionsPanels();getMainMenuPaint();versionSplashImage=menuLettering(VERSION_SPLASH);
- for(const label of ['More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow'])menuLettering(label);
+ for(const label of ['More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow','Sculpted Clay'])menuLettering(label);
  for(const code of [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c=>'Key'+c).concat([...'0123456789'].flatMap(c=>['Digit'+c,'Numpad'+c]),['Space','Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Backspace',...Object.values(save.settings.controls)]))menuLettering(keyLabel(code));
  // These source layers are now retired; the renderer only keeps finished artwork.
  for(const name of ['IMM_MainMenu_01','IMM_Options_01','IMM_Options_MusicON_01','IMM_Options_SoundON_01']){const source=assets[name];source.width=source.height=0;delete assets[name];}
