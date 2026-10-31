@@ -383,6 +383,8 @@ def build(root=DIST, output=OUTPUT):
                 paint, head = paint_crimson_frame(src, v[11], v[12], name)
                 if name == POSE_FRAME:
                     print("Crimson face registration:", head, flush=True)
+                    if head is None:
+                        raise AssertionError("Could not identify the original running-frame face")
             else:
                 paint = paint_frame(src, v[11], v[12], skin, material)
             # Exact alpha-preservation, including antialiased edges.
