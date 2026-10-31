@@ -12,7 +12,9 @@ let manifestPromise=null,atlasManifest=null;
 const imageLoads=new Map(),atlasImages=new Map(),thumbnails=new Map();
 
 export const isAtlasSkin=id=>available.has(id);
-export const thumbnailUrl=id=>ROOT+id+'-thumb.png?v='+ATLAS_VERSION;
+// Update Crimson alone; all other skin images retain their existing URLs.
+const assetVersion=id=>id==='crimson_bolt'?'crimson-refine-01':ATLAS_VERSION;
+export const thumbnailUrl=id=>ROOT+id+'-thumb.png?v='+assetVersion(id);
 
 async function fetchManifest(){
  const r=await fetch(ROOT+'manifest.json?v='+ATLAS_VERSION,{cache:'no-cache'});
@@ -52,7 +54,7 @@ export async function ensureSkinAtlas(id){
  await preloadSkinManifest();
  if(atlasImages.has(id))return;
  if(!imageLoads.has(id)){
-  const task=loadImage(ROOT+id+'.png?v='+ATLAS_VERSION).then(async img=>{
+  const task=loadImage(ROOT+id+'.png?v='+assetVersion(id)).then(async img=>{
    if(img.naturalWidth!==atlasManifest.width||img.naturalHeight!==atlasManifest.height){
     throw new Error('Incorrect atlas dimensions for '+id);
    }
