@@ -115,7 +115,7 @@ function deathTargets(index,deadFloor=false){
  if(deadFloor){for(const p of Object.values(j)){p.y=Math.min(119,p.y+7);} }
  return j;
 }
-function poseFor(name,source,meta){
+export function poseFor(name,source,meta){
  const kind=group(name),idx=frameIndex(name);
  const isRun=kind==='Run'||kind.startsWith('RunN'),isJump=kind==='Jump'||kind.startsWith('JumpN');
  const isGlide=kind==='Glide'||kind==='SuperSketchman',isRoll=kind==='Roll';
