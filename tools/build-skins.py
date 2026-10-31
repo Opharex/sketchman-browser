@@ -572,47 +572,136 @@ def _ember_shade(rock, heat):
                       _ember_smoothstep(.82, 1., heat))
 
 
-def build_obsidian_material(width=220, height=170):
-    """Generate a coherent multiscale 2D lava-crust texture once at build time.
+def obsidian_plate_color(u, v, head=False, hx=0., hy=0.):
+    """Sculpted plate material in LOCAL anatomical coordinates.
 
-    Cracked basalt plates (Voronoi cells) make branching connected fissures;
-    finer fractures and noise add irregularity. This is baked into PNGs, never
-    evaluated during gameplay. Local light catches the raised rock surfaces.
+    Voronoi slabs create large, contiguous charcoal rock. The difference
+    between neighboring plate distances creates genuine cracks along rock
+    boundaries, not randomly scattered orange strokes. Small secondary
+    branches are rare; yellow-hot material exists only in the narrow faults.
     """
-    image = []
-    for y in range(height):
-        row = []
-        for x in range(width):
-            # Distortion of plate edges prevents artificial straight segments.
-            warp_x = (noise(x, y, 14, 41)-.5)*7.2
-            warp_y = (noise(x, y, 15, 65)-.5)*7.2
-            xx, yy = x+warp_x, y+warp_y
-            large, tile = _ember_voronoi(xx, yy, 18, 17)
-            small, grain = _ember_voronoi(xx+6.5, yy-3.6, 9, 91)
-            rough = noise(x, y, 6, 72)
-            pits = noise(x, y, 3, 8)
+    size=15.0 if head else 15.2
+    warp_x=(noise(u,v,8 if head else 10,123)-.5)*1.8
+    warp_y=(noise(u,v,10,124)-.5)*1.8
+    seam,plate=_ember_voronoi(u+warp_x,v+warp_y,size,12 if head else 29)
+    secondary,grain=_ember_voronoi(u-2.1,v+1.8,size*.57,92)
+    # Intermittent small branching fractures, never a second full grid.
+    crack=min(seam,secondary*1.35 if grain>.955 else 100.)
+    heat=max(0.,min(1.,(1.75-crack)/1.48))**1.30
 
-            # Mostly charcoal-black rock with uneven sculpted plates, not
-            # a plain black fill or an orange gradient.
-            gray = round(18 + tile*24 + rough*13 + pits*5)
-            rock = (gray+2, max(0,gray-2), gray+1)
+    # A larger vertical fault on the spherical head, separate from the
+    # thinner plate boundaries; rock plates remain mostly near-black.
+    if head:
+        fault=abs(hx-.24-.23*math.sin(hy*4.1))
+        heat=max(heat,(1.-_ember_smoothstep(.05,.24,fault))*.84)
 
-            # Broad molten channels with thinner branching networks.
-            vein1 = 1.0-_ember_smoothstep(.20, 3.6, large)
-            vein2 = (1.0-_ember_smoothstep(.12, 1.55, small))*.88
-            # Fine faults are intermittent to avoid making every pixel lava.
-            if grain < .25:
-                vein2 *= .37
-            lava = max(vein1, vein2)
-            lava = max(0., min(1., lava + (noise(x,y,7,117)-.5)*.16))
+    fine=noise(u,v,3,42)
+    rough=noise(u,v,5,71)
+    gray=17+int(plate*14+rough*12+fine*6)
+    rock=(gray,gray-2,gray+3)
+    # Curved facets and rock edges catch only reflected ember light.
+    edge_glint=max(0.,1.-abs(seam-3.3)/1.75)
+    rock=mix(rock,(87,68,70),min(.19,edge_glint*.15*plate))
+    rock=mix(rock,(66,24,22),max(0.,1.-min(seam,3.5)/3.5)*.30)
+    shade=_ember_shade(rock,heat)
+    if head:
+        # Radial stone shading establishes a sphere, unlike a flat circle.
+        radial=math.hypot(hx,hy)
+        shade=mix(shade,(8,5,11),max(0.,min(.32,(radial-.42)*.34)))
+    return shade
 
-            # Bright glints around heated stone edges help sell hot cracks.
-            near_seam = 1.0-_ember_smoothstep(1.4, 5.3, large)
-            if lava < .25 and near_seam > .18:
-                rock = _ember_mix(rock, (85, 34, 22), near_seam*.33)
-            row.append(_ember_shade(rock, lava))
-        image.append(row)
-    return image
+
+def obsidian_pose_texture_axes(source: Image.Image, solid_mask: Image.Image,
+                               face, xoff: int, yoff: int, frame_name: str):
+    """Trace pose-specific local limb directions from the SOURCE sprite.
+
+    The pre-existing 18-joint Sketchman rig has a manually aligned CHR_Run_01
+    bind pose but no verified pose table for every other APK frame. Use the
+    verified bind bones only for that frame. In all other frames, infer local
+    body-section tangents with a fixed-radius integral-image covariance
+    transform, never reuse the run pose or warp unrelated animations.
+
+    Returns per-pixel LOCAL material coordinates. One frame is independent
+    from every other frame, so the result is baked with its actual pose.
+    """
+    w,h=source.size
+    solid=solid_mask.load()
+    weights=[[0]*w for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            if solid[x,y]<=127:
+                continue
+            if face:
+                dx=(x-face["cx"])/max(1.,face["rx"])
+                dy=(y-face["cy"])/max(1.,face["ry"])
+                if math.hypot(dx,dy)<1.23:
+                    continue
+            weights[y][x]=1
+    # Six summed-area tables: N, x, y, xx, yy, xy. A local principal axis
+    # distinguishes horizontal forearms from vertical shins and diagonal
+    # thighs in EACH existing source animation.
+    moments=[]
+    for px,py in ((0,0),(1,0),(0,1),(2,0),(0,2),(1,1)):
+        integral=[[0]*(w+1) for _ in range(h+1)]
+        for y in range(1,h+1):
+            running=0
+            for x in range(1,w+1):
+                if weights[y-1][x-1]:
+                    running+=(x-1)**px*(y-1)**py
+                integral[y][x]=integral[y-1][x]+running
+        moments.append(integral)
+
+    def local_axis(x,y):
+        x0=max(0,x-9);x1=min(w-1,x+9)
+        y0=max(0,y-9);y1=min(h-1,y+9)
+        sums=[a[y1+1][x1+1]-a[y1+1][x0]-
+              a[y0][x1+1]+a[y0][x0] for a in moments]
+        n,sx,sy,sxx,syy,sxy=sums
+        if n<4:
+            return 0.
+        covxx=sxx/n-(sx/n)**2
+        covyy=syy/n-(sy/n)**2
+        covxy=sxy/n-(sx*sy)/(n*n)
+        theta=.5*math.atan2(2*covxy,covxx-covyy)
+        # Quantization prevents jumpy seam direction at single-pixel
+        # highlights, particularly around joints and bent knees.
+        return round(theta/(math.pi/8))*(math.pi/8)
+
+    # Verified, actual CHR_Run_01 rig points in the original 132x143
+    # sprite coordinate system. Use them as material axes in that pose.
+    rig_segments=(
+        ((65,66),(67,53)),((67,53),(74,40)),
+        ((62,43),(55,38)),((55,38),(49,52)),
+        ((76,44),(83,55)),((83,55),(97,50)),
+        ((65,66),(57,69)),((57,69),(39,88)),
+        ((39,88),(27,63)),((65,66),(76,67)),
+        ((76,67),(84,71)),((84,71),(97,98))
+    )
+
+    def coords(x,y):
+        fx=x+xoff;fy=y+yoff
+        if frame_name=="CHR_Run_01":
+            winner=None;minimum=float('inf')
+            for bone,(a,b) in enumerate(rig_segments):
+                dx=b[0]-a[0];dy=b[1]-a[1]
+                length2=dx*dx+dy*dy
+                t=max(0.,min(1.,((fx-a[0])*dx+(fy-a[1])*dy)/length2))
+                dist2=(fx-a[0]-t*dx)**2+(fy-a[1]-t*dy)**2
+                if dist2<minimum:
+                    minimum=dist2;winner=(bone,a,dx,dy)
+            bone,a,dx,dy=winner
+            length=math.hypot(dx,dy)
+            # Segment-local (along,across) texture; the bone index supplies
+            # a stable, non-repeating plate seed and avoids a world-space
+            # texture pasted over the entire running body.
+            u=((fx-a[0])*dx+(fy-a[1])*dy)/length + bone*11.
+            v=(-(fx-a[0])*dy+(fy-a[1])*dx)/length + bone*3.
+        else:
+            theta=local_axis(x,y)
+            u=fx*math.cos(theta)+fy*math.sin(theta)
+            v=-fx*math.sin(theta)+fy*math.cos(theta)
+        return u,v
+    return coords
 
 
 def obsidian_surface_mask(source: Image.Image):
@@ -659,100 +748,74 @@ def obsidian_head_mask(x,y,face):
 
 
 def paint_obsidian_frame(source: Image.Image, xoff: int, yoff: int,
-                         frame_name: str, material):
-    """Black volcanic character, molten fissures ONLY inside solid body/head.
+                         frame_name: str, material=None):
+    """Pose-bound black basalt and inter-plate lava in one original-sized PNG.
 
-    The complete body and head are painted from original blue strokes and
-    enclosed internal highlights, instead of preserving a white character.
-    The *outside* white halo/cyan shadow receives a subdued warm outline,
-    never any crack pattern. The original alpha channel, frame shape,
-    animation and trim metadata are never changed.
+    Original frame alpha, position and trim data remain byte-identical.
+    Unlike the old material, there is NO rectangular global crack map.
+    Head and limbs receive their own anatomy-aware surface coordinates.
     """
     source=source.convert("RGBA")
     w,h=source.size
     px=source.load()
-    rock_mask=obsidian_surface_mask(source).load()
+    solid=obsidian_surface_mask(source)
+    mask=solid.load()
     result=Image.new("RGBA",source.size)
     dest=result.load()
     face=_crimson_face(source,xoff,yoff,frame_name)
-    molten_count=0
-    head_count=0
-    protected_count=0
-    rock_count=0
-    white_count=0
-    alpha_count=0
+    coords=obsidian_pose_texture_axes(source,solid,face,xoff,yoff,frame_name)
+    molten_count=head_count=rock_count=white_count=covered=0
     for y in range(h):
-        fy=min(len(material)-1,max(0,y+yoff))
         for x in range(w):
             r,g,b,alpha=px[x,y]
             if not alpha:
                 continue
-            alpha_count+=1
-            fx=min(len(material[0])-1,max(0,x+xoff))
-            body=rock_mask[x,y]>127 and alpha>=45
+            covered+=1
+            body=mask[x,y]>127 and alpha>=45
             head=obsidian_head_mask(x,y,face)>.42 and alpha>=45
             if body or head:
-                # Dark basalt replaces both the blue ink AND its formerly
-                # white highlights, including shoes and head.
-                rock=material[fy][fx]
-                if head and not body:
+                if head and face:
                     dx=(x-face["cx"])/max(1.,face["rx"])
                     dy=(y-face["cy"])/max(1.,face["ry"])
-                    rough=noise(x+xoff,y+yoff,5,151)
-                    stone=round(19+rough*24)
-                    basalt=(stone+4,max(0,stone-2),stone+2)
-                    fault1=1.-_ember_smoothstep(.035,.29,
-                        abs(dx+.17-.29*math.sin(dy*4.+rough*2.8)))
-                    fault2=(1.-_ember_smoothstep(.02,.14,
-                        abs(dy+.26-.21*math.sin(dx*5.1+rough*2.5))))*.85
-                    hot=max(fault1,fault2)
-                    if rock[0]>130 and rock[0]-rock[1]>65:
-                        hot=max(hot,.50)
-                    rock=_ember_shade(basalt,hot)
+                    u=dx*15.+72.
+                    v=dy*15.+30.
+                    rock=obsidian_plate_color(u,v,head=True,hx=dx,hy=dy)
                     head_count+=1
-                elif head:
-                    head_count+=1
+                else:
+                    u,v=coords(x,y)
+                    rock=obsidian_plate_color(u,v)
                 rock_count+=1
-                # Keep cracks completely confined to these solid material
-                # pixels. The outer silhouette uses a different color branch.
                 dest[x,y]=(*rock,alpha)
                 if rock[0]>185 and rock[1]>45 and rock[0]>rock[1]+65:
                     molten_count+=1
             else:
-                # Original opaque WHITE outline was the reported regression.
-                # Paint its cosmetic border warm burnt umber; translucent
-                # shadows become orange-red edge light. Never sample cracks.
-                if alpha < 85:
+                # Preserve original silhouette and anti-aliasing, replacing
+                # white outer rims with unobtrusive ember-dark red ink.
+                if alpha<85:
                     border=(204,73,15)
                 else:
                     lum=.2126*r+.7152*g+.0722*b
                     border=(111,34,14) if lum>105 else (48,26,24)
                 dest[x,y]=(*border,alpha)
-                protected_count+=1
+
             rr,gg,bb,aa=dest[x,y]
             if aa>150 and min(rr,gg,bb)>190:
                 white_count+=1
 
-    # Regression protection: no near-white painted body or unmasked lava,
-    # while the independent outer glow and fire trail remain unchanged.
-    if alpha_count and white_count>max(6,round(alpha_count*.015)):
+    if covered and white_count>max(6,round(covered*.015)):
         raise AssertionError(
-            f"White Obsidian skin regression: {frame_name}: {white_count}/{alpha_count}")
-    if rock_count == 0:
-        raise AssertionError(f"Empty Obsidian body mask: {frame_name}")
-    for y in range(h):
-        for x in range(w):
-            r,g,b,a=dest[x,y]
-            if not a or (rock_mask[x,y]>127 and a>=45) or (
-                    obsidian_head_mask(x,y,face)>.42 and a>=45):
-                continue
-            if r>180 and g>100 and b<100:
-                raise AssertionError(
-                    f"Lava escaped solid body mask: {frame_name} ({x},{y})")
-    # Final PNG contains basalt, cracks, and their small warm emissive halo.
+            f"White Obsidian material regression: {frame_name} {white_count}/{covered}")
+    if not rock_count:
+        raise AssertionError(f"Obsidian material mask empty: {frame_name}")
+    # The approved reference is mostly basalt, not a lava-colored body.
+    if molten_count>rock_count*.33:
+        raise AssertionError(
+            f"Obsidian is too orange: {frame_name} {molten_count}/{rock_count}")
+
+    # Existing two-pixel molten emission remains BAKED in the same sprite;
+    # there is no runtime texture overlay, body glow pass or extra image.
     result=bake_obsidian_emission(result,source,xoff,yoff,frame_name)
     return result,head_count,molten_count
-
 
 
 def bake_obsidian_emission(painted: Image.Image, source: Image.Image,
@@ -870,7 +933,7 @@ def build(root=DIST, output=OUTPUT):
                 "skins": sorted(SKINS)}
     (output / "manifest.json").write_text(json.dumps(manifest, separators=(",", ":"), sort_keys=True))
     for skin in SKINS:
-        material = build_obsidian_material() if skin == "obsidian_ember" else create_material(skin)
+        material = None if skin == "obsidian_ember" else create_material(skin)
         atlas = Image.new("RGBA", (ATLAS_WIDTH, height))
         total = 0
         for name in names:
