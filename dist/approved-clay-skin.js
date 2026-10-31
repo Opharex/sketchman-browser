@@ -50,14 +50,23 @@ const dist2=(x,y,a,b)=>{
  const px=a.x+t*dx,py=a.y+t*dy;
  return (x-px)**2+(y-py)**2;
 };
-function classify(x,y){
- // The distinct painted pieces must remain intact, most importantly the
- // approved head/face and its exact eyebrows and hair-like clay tips.
- if(x>49&&y<80)return 14;
- if(x<38&&y>=123)return 2;
- if(x>75&&y>140)return 8;
- if(x<41&&y>=86&&y<124)return 5;
- if(x>93&&y>=81&&y<133)return 12;
+function classify(x,y,r,g,b){
+ // Keep the original painted cream materials together: the gloves, shoes,
+ // and head must not be split across multiple moving charcoal bones.
+ const cream=r>97&&r-b>15;
+ if(cream){
+  if(y<86&&x>46)return 14;
+  if(x<62&&y>=122)return 2;
+  if(x>72&&y>129)return 8;
+  if(x<58&&y>=78&&y<132)return 5;
+  if(x>82&&y>=74&&y<133)return 12;
+ }
+ // The distinct painted pieces must remain intact, especially the face.
+ if(x>49&&y<78)return 14;
+ if(x<35&&y>=126)return 2;
+ if(x>76&&y>144)return 8;
+ if(x<40&&y>=91&&y<125)return 5;
+ if(x>96&&y>=84&&y<133)return 12;
  const tests=partDefs.map((p,i)=>{
   const a=SOURCE[p.a],b=SOURCE[p.b];
   let score=dist2(x,y,a,b)/(p.radius*p.radius);
@@ -82,7 +91,7 @@ function splitArt(image){
  let count=0;
  for(let y=0;y<SH;y++)for(let x=0;x<SW;x++){
   const k=(y*SW+x)*4;if(!pixels[k+3])continue;
-  const part=classify(x,y);groups[part].data.set(pixels.subarray(k,k+4),k);count++;
+  const part=classify(x,y,pixels[k],pixels[k+1],pixels[k+2]);groups[part].data.set(pixels.subarray(k,k+4),k);count++;
  }
  canvases.forEach((canvas,i)=>canvas.getContext('2d').putImageData(groups[i],0,0));
  return {canvas:origin,parts:canvases,opaquePixels:count};
