@@ -575,6 +575,16 @@ def build(root=DIST, output=OUTPUT):
                 paint = paint_frost_frame(src, v[11], v[12], name)
             elif skin == "sunset_blaze":
                 paint = paint_sunset_frame(src, v[11], v[12], name)
+                if name == POSE_FRAME:
+                    head = _crimson_face(src, v[11], v[12], name)
+                    if head is None:
+                        raise AssertionError("Sunset Blaze's original running-frame solar head was not found")
+                    # Require both a golden hot region and red-orange material.
+                    colored = [px for px in paint.getdata() if px[3] > 128]
+                    if not any(px[0] >= 245 and px[1] >= 195 and 10 < px[2] < 220 for px in colored):
+                        raise AssertionError("Missing solar hot-yellow core in the Run_01 skin")
+                    if not any(px[0] > 185 and 30 <= px[1] < 145 and px[2] < 95 for px in colored):
+                        raise AssertionError("Missing warm molten-orange ribbons in the Run_01 skin")
             else:
                 paint = paint_frame(src, v[11], v[12], skin, material)
             # Exact alpha-preservation, including antialiased edges.
