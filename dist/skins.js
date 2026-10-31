@@ -1,11 +1,21 @@
+import {isAtlasSkin} from './skin-atlas.js?v=nine-skins-01';
 // Cosmetic skins share original APK animation frames and do not modify physics.
 export const SKINS=Object.freeze([
  {id:'default',name:'Original Sketchman'},
- {id:'shadow',name:'Shadow'}
+ {id:'shadow',name:'Shadow'},
+ {id:'crimson_bolt',name:'Crimson Bolt'},
+ {id:'frost_runner',name:'Frost Runner'},
+ {id:'toxic_lime',name:'Toxic Lime'},
+ {id:'royal_gold',name:'Royal Gold'},
+ {id:'neon_synthwave',name:'Neon Synthwave'},
+ {id:'obsidian_ember',name:'Obsidian Ember'},
+ {id:'deep_ocean',name:'Deep Ocean'},
+ {id:'jungle_camo',name:'Jungle Camo'},
+ {id:'sunset_blaze',name:'Sunset Blaze'}
 ]);
 export const DEFAULT_SKIN='default';
 export function getSkin(id){return SKINS.find(s=>s.id===id)||SKINS[0];}
-export function cosmeticFrame(frame,skinId){return skinId==='shadow'?'SHADOW_'+frame:frame;}
+export function cosmeticFrame(frame,skinId){return skinId==='shadow'?'SHADOW_'+frame:isAtlasSkin(skinId)?'SKIN_'+skinId+'__'+frame:frame;}
 // Build an identical alpha mask for every original player frame and place white eyes
 // inside the head region. The generated sprites never modify original frame canvases.
 export function prepareShadowSprites(assets,sprites){
