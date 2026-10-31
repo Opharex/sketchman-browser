@@ -18,7 +18,7 @@ import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
 import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites} from './skins.js?v=nine-skins-01';
-import {isAtlasSkin,thumbnailUrl,skinThumbnail,preloadSkinThumbnails,ensureSkinAtlas,releaseInactiveAtlases,getAtlasFrame,validateSkinMetadata} from './skin-atlas.js?v=obsidian-ember-dark-fix-02';
+import {isAtlasSkin,thumbnailUrl,skinThumbnail,preloadSkinThumbnails,ensureSkinAtlas,releaseInactiveAtlases,getAtlasFrame,validateSkinMetadata} from './skin-atlas.js?v=obsidian-ember-baked-01';
 import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=boss-rig-sync-01';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const BOSS_TEST=new URLSearchParams(location.search).get('bossTest')==='1';
@@ -105,7 +105,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'OBSIDIAN DARK FIX 02';;;
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'OBSIDIAN EMBER BAKE-IN FIX';;;
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -247,8 +247,8 @@ function drawSprite(target,n,x,y,scale=1,flip=false,alpha=1,rotation=0){
  target.save();target.translate(x,y);target.rotate(rotation);
  if(flip)target.scale(-1,1);
  target.globalAlpha=alpha;
- // Only Obsidian receives a warm edge halo. Canvas state is restored on exit.
- if(atlas?.id==='obsidian_ember'){target.shadowColor='rgba(255,93,8,.78)';target.shadowBlur=7*Math.max(.55,scale);}
+ // Obsidian's lava and warm glow are baked into its PNG atlas.
+ // Only its moving fire trail is a separate cosmetic effect.
  if(atlas)target.drawImage(im,...atlas.box,p.x,p.y,p.w,p.h);
  else target.drawImage(im,p.x,p.y,p.w,p.h);
  target.restore();return true;
