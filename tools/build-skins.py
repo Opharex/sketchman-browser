@@ -632,10 +632,10 @@ def obsidian_surface_mask(source: Image.Image):
     for y in range(h):
         for x in range(w):
             r,g,b,a=px[x,y]
-            if a < 80:
+            if a < 150:
                 continue
             lum=.2126*r+.7152*g+.0722*b
-            if (lum < 176 and b-r > 30 and b-g > 18):
+            if (lum < 176 and b-r > 35 and b-g > 30):
                 out[x,y]=255
     # Seven-pixel closing fills white interior slivers and highlights of the
     # original limbs, but does not fill the large gaps between limbs.
