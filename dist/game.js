@@ -1,3 +1,4 @@
+import {drawFrostParticles} from './frost-particles.js?v=frost-refine-01';
 import {createBossRig} from './boss-rig.js?v=boss-rig-sync-01';
 import {bossShotPose,bossRigPlacement,bossRigMuzzle,BOSS_SHOT_SOUND,BOSS_COCK_SOUND,bossShotTiming} from './boss-shot-animation.js?v=boss-rig-sync-01';
 import {UI_IMAGE_URLS} from './ui-assets.js';
@@ -102,7 +103,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'CRIMSON REFINE 01';;;
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'FROST RUNNER REFINE 01';;;
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -307,6 +308,9 @@ function renderWorld(){
  for(const b of w.enemyBullets)drawFrame(b.sprite||'BUL_HeliBullet_01',b.x,b.y,1,false,1,enemyBulletRotation(b));
  const n=playerFrame(w),blink=!w.dead&&w.invincible>0&&w.invincible<1.5&&Math.floor(w.t*10)%2;
  if(!blink){if(n==='CHR_DeadFloor_01')drawFrame(cosmeticFrame(n,selectedSkin),actorX+20,FLOOR-22,1);else drawFrame(cosmeticFrame(n,selectedSkin),actorX,actorY,1);}
+ // Frost sparks are a cosmetic overlay with the same player anchor, drawn only
+ // when the actual Frost Runner sprite is visible (including death states).
+ if(!blink&&selectedSkin==='frost_runner')drawFrostParticles(ctx,n==='CHR_DeadFloor_01'?actorX+20:actorX,n==='CHR_DeadFloor_01'?FLOOR-22:actorY,w.t);
  if(w.invincible>1.5)drawFrame(frameName('PROP_Shield_',frameOf('shield',w.t)),actorX+30,actorY-4,w.gliding?.8:1,false,.85);
  if(w.poseTimer>0&&w.cooldown>w.weapon.rate-.065){const mx=PLAYER_X+[35,35,35,40,20,35,40,35,35,35][w.weapon.id],my=w.y-64+[-29,-10,-15,-30,-34,-29,-30,-10,-10,-10][w.weapon.id];
   if(assets.ParExpStar_01){ctx.save();ctx.translate(mx+10,my);ctx.rotate(w.t*17);ctx.drawImage(assets.ParExpStar_01,-15,-15,30,30);ctx.restore();}
@@ -351,6 +355,7 @@ function updateSkinPreview(){
  pc.clearRect(0,0,skinPreviewCanvas.width,skinPreviewCanvas.height);
  const frameName='CHR_Run_'+String(frameOf('run',anim)).padStart(2,'0');
  drawSprite(pc,cosmeticFrame(frameName,selectedSkin),66,71,1);
+ if(selectedSkin==='frost_runner')drawFrostParticles(pc,66,71,anim,.72);
 }
 function skinsScreen(){
  state='skins';resetInput();
