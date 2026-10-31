@@ -749,7 +749,79 @@ def paint_obsidian_frame(source: Image.Image, xoff: int, yoff: int,
             if r>180 and g>100 and b<100:
                 raise AssertionError(
                     f"Lava escaped solid body mask: {frame_name} ({x},{y})")
+    # Final PNG contains basalt, cracks, and their small warm emissive halo.
+    result=bake_obsidian_emission(result,source,xoff,yoff,frame_name)
     return result,head_count,molten_count
+
+
+
+def bake_obsidian_emission(painted: Image.Image, source: Image.Image,
+                           xoff: int, yoff: int, frame_name: str):
+    """Bake all lava light into original sprite RGBA pixels, offline.
+
+    Molten channels already live in the volcanic rock image. This pass adds
+    warm emissive falloff inside the same black rock material and narrow
+    opaque outline. Never create alpha outside the original sprite; no
+    extra runtime overlay, glow shader, or separate body drawing pass.
+    """
+    from PIL import ImageFilter
+    original=source.convert("RGBA")
+    w,h=original.size
+    src=original.load()
+    out=painted.copy()
+    dst=out.load()
+    rock=obsidian_surface_mask(original).load()
+    head=_crimson_face(original,xoff,yoff,frame_name)
+    material=Image.new("L",(w,h),0)
+    molten=Image.new("L",(w,h),0)
+    mask=material.load()
+    heat=molten.load()
+    hot_count=0
+
+    for y in range(h):
+        for x in range(w):
+            r,g,b,a=src[x,y]
+            if a<45: continue
+            if rock[x,y]<=127 and obsidian_head_mask(x,y,head)<=.42:
+                continue
+            mask[x,y]=255
+            rr,gg,bb,aa=dst[x,y]
+            if rr>175 and gg>45 and rr>gg+65:
+                heat[x,y]=165 if gg<130 else 210 if gg<185 else 245
+                hot_count+=1
+
+    if not hot_count:
+        return out
+    # A two-pixel halo is embedded into the *stone*, not the background.
+    softened=molten.filter(ImageFilter.GaussianBlur(2.0)).load()
+    edge=material.filter(ImageFilter.MaxFilter(5)).load()
+    warmed=0
+    for y in range(h):
+        for x in range(w):
+            r,g,b,a=dst[x,y]
+            if not a: continue
+            emission=softened[x,y]/255.
+            if emission<.025: continue
+            if mask[x,y]:
+                if heat[x,y]: continue  # keep bright cracks unchanged
+                factor=min(.53,emission*.85)
+                tint=(160,55,24) if emission>.20 else (112,39,22)
+            elif edge[x,y] and a>30:
+                # Warm the original sprite rim; no cracks leave the body.
+                factor=min(.30,emission*.46)
+                tint=(146,50,18)
+            else:
+                continue
+            lit=mix((r,g,b),tint,factor)
+            if lit!=(r,g,b):
+                dst[x,y]=(*lit,a)
+                warmed+=1
+
+    if frame_name==POSE_FRAME and warmed<20:
+        raise AssertionError("No Obsidian emission baked into dark rock")
+    if out.getchannel("A").tobytes()!=original.getchannel("A").tobytes():
+        raise AssertionError(f"Obsidian alpha changed in {frame_name}")
+    return out
 
 
 def pack(frames, width=ATLAS_WIDTH):
