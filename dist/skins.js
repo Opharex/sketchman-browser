@@ -1,4 +1,4 @@
-import {prepareRiggedClaySprites} from './clay-rig-skin.js?v=clay-rig-v1';
+import {prepareRiggedClaySprites} from './clay-rig-skin.js?v=clay-rig-v2';
 // Original and Shadow use original APK assets. Clay is newly modeled 2D artwork
 // rendered from the shared character bone hierarchy. No physics are modified.
 export const SKINS=Object.freeze([
