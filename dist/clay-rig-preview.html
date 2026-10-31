@@ -15,7 +15,7 @@ small{display:block;color:#666;margin:8px 0}.strip{display:flex;flex-wrap:wrap;g
 </style></head><body><main><h1>APPROVED CLAY SKIN · ARTWORK TEST</h1>
 <p>The Clay sprite on the right is generated from the <strong>actual approved image artwork</strong>, not the previous procedural drawing. The original game sprite and source painting are here for comparison.</p>
 <div class="toolbar"><label for="frame">Animation:</label><select id="frame"></select><button id="next">Next frame</button>
-<a href="./?skin=clay&v=approved-clay-01">Play with Clay equipped</a></div>
+<a href="./?skin=clay&v=approved-clay-02">Play with Clay equipped</a></div>
 <div class="panels">
 <section class="panel"><h2>Original APK frame</h2><canvas id="original" width="264" height="286"></canvas></section>
 <section class="panel"><h2>Approved artwork source</h2><canvas id="reference" width="264" height="286"></canvas></section>
@@ -23,7 +23,7 @@ small{display:block;color:#666;margin:8px 0}.strip{display:flex;flex-wrap:wrap;g
 </div><p id="status" role="status">Loading the approved artwork and animation frames…</p><div class="strip" id="strip"></div>
 <small>The preview uses the same image asset, renderer, sprite metadata, and original game frame numbers as the playable build. Skin changes do not affect collision or movement.</small>
 <script type="module">
-import {prepareApprovedClaySprites} from './approved-clay-skin.js?v=approved-clay-01';
+import {prepareApprovedClaySprites} from './approved-clay-skin.js?v=approved-clay-02';
 const keys=['Run_01','Run_02','Run_04','Run_08','Run_12','Run_16','Jump_01','Jump_06','Jump_12',
  'Glide_01','RunNGun_01','RunNShotgun_01','RunNUzzi_01','RunNBow_01','RunNRPG_01','Roll_03','Death_04','DeadFloor_01'];
 const select=document.querySelector('#frame'),strip=document.querySelector('#strip'),status=document.querySelector('#status');
