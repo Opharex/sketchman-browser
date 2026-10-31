@@ -1,4 +1,5 @@
 import {drawFrostParticles} from './frost-particles.js?v=frost-refine-01';
+import {EmberTrail,drawEmberPreview} from './ember-trail.js?v=obsidian-ember-refine-01';
 import {createBossRig} from './boss-rig.js?v=boss-rig-sync-01';
 import {bossShotPose,bossRigPlacement,bossRigMuzzle,BOSS_SHOT_SOUND,BOSS_COCK_SOUND,bossShotTiming} from './boss-shot-animation.js?v=boss-rig-sync-01';
 import {UI_IMAGE_URLS} from './ui-assets.js';
@@ -35,6 +36,7 @@ const KEY='sketchman-browser-v1';let save=freshSave(),storageOK=true;try{save=no
 try{const legacy=JSON.parse(localStorage.getItem('sketchman-keybinds'));if(legacy&&!JSON.parse(localStorage.getItem(KEY))?.settings?.controls){for(const action of ['jump','fire','pause']){const next=bindControl(save.settings.controls,action,legacy[action]);if(next)save.settings.controls=next;}persist();}}catch{}
 let state='loading',world=null,assets={},sprites={},missions=[],normalData={patterns:[]},last=0,anim=0,ended=false,returnState='menu',tipTime=0,tutorial=false,toastTimer,music=null,musicName='',pendingMission=[],muteForPause=false;
 let captureControl=null,controlsReturn=menu,uiImages=new Map();
+const emberTrail=new EmberTrail();
 let selectionIndex=0,selectionMotion=new CarouselMotion();
 let pointerJump=new Set(),pointerFire=new Set(),keys=new Set();
 let disposeTouchControls=()=>{};
@@ -103,7 +105,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'SUNSET BLAZE REFINE 01';;;
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'OBSIDIAN EMBER REFINE 01';;;
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -245,6 +247,8 @@ function drawSprite(target,n,x,y,scale=1,flip=false,alpha=1,rotation=0){
  target.save();target.translate(x,y);target.rotate(rotation);
  if(flip)target.scale(-1,1);
  target.globalAlpha=alpha;
+ // Only Obsidian receives a warm edge halo. Canvas state is restored on exit.
+ if(atlas?.id==='obsidian_ember'){target.shadowColor='rgba(255,93,8,.78)';target.shadowBlur=7*Math.max(.55,scale);}
  if(atlas)target.drawImage(im,...atlas.box,p.x,p.y,p.w,p.h);
  else target.drawImage(im,p.x,p.y,p.w,p.h);
  target.restore();return true;
@@ -279,6 +283,9 @@ function renderWorld(){
  // Keep the death frames visible at the original player anchor. The prior
  // deathSlide moved the character beyond the right edge before the clip ended.
  const actorX=PLAYER_X,actorY=w.y-64;
+ // World-space trail is drawn before actors and obstacles, so lingering
+ // flames cannot cover enemy tells or obstruct gameplay visibility.
+ if(selectedSkin==='obsidian_ember')emberTrail.draw(ctx,w);
  const shadowScale=Math.max(.3,1-(FLOOR-w.y)/400);img('SCN_Shadow_01',actorX-50*shadowScale,476,100*shadowScale,14,.32);
  for(const e of w.entities){if(e.x>1200)continue;const cy=e.y-e.h/2;
   if(e.type==='coin')drawFrame(frameName('CON_Coin_',frameOf('coin',e.age)),e.x,cy,1);
@@ -356,6 +363,7 @@ function updateSkinPreview(){
  const frameName='CHR_Run_'+String(frameOf('run',anim)).padStart(2,'0');
  drawSprite(pc,cosmeticFrame(frameName,selectedSkin),66,71,1);
  if(selectedSkin==='frost_runner')drawFrostParticles(pc,66,71,anim,.72);
+ if(selectedSkin==='obsidian_ember')drawEmberPreview(pc,66,71,anim);
 }
 function skinsScreen(){
  state='skins';resetInput();
@@ -503,7 +511,7 @@ function event(type,amount=1,sub=0){if(type==='bossShoot')sfx('shoot',1);if(type
 }
 function advanceMissions(){for(let i=0;i<3;i++){while(save.completed.includes(save.missionIndex[i])&&save.missionIndex[i]<(i+1)*40)save.missionIndex[i]++;if(save.missionIndex[i]>=(i+1)*40)save.missionIndex[i]=-1;}}
 function startBossTest(){resetInput();tutorial=false;pendingMission=[];world=new World({weapon:save.selected,onEvent:event,patterns:normalData.patterns});world.boss=createBoss();Object.assign(world.boss,{x:720,y:412,phase:'fight',vulnerable:true,shoot:.5});state='playing';ended=false;attachHud();muteForPause=false;setMusic('M_0003_Boss.wav');tipTime=0;toast('Boss rig test — jump to hit the driver.');}
-function startRun(isTutorial=false){if(BOSS_TEST&&!isTutorial)return startBossTest();resetInput();tutorial=isTutorial;pendingMission=[];advanceMissions();for(const m of activeMissions())if(!m.cumulative)save.missionProgress[m.id]=0;let effects={};const map={double:{doubleCoins:true},magnet:{magnet:true},blood:{blood:true},armor:{armor:2},megaArmor:{armor:3},power:{power:2},megaPower:{power:3},glide:{glide:true},life:{life:true},head500:{headstart:500},head750:{headstart:750},head1000:{headstart:1000},head1250:{headstart:1250},head1500:{headstart:1500}};if(!isTutorial)for(const id of save.equipped){if((save.stock[id]||0)>0&&map[id]){Object.assign(effects,map[id]);save.stock[id]--;}}effects.longShield=!!save.permanent.longShield;effects.fullHealth=!!save.permanent.fullHealth;world=new World({weapon:save.selected,onEvent:event,effects,patterns:normalData.patterns,tutorial:isTutorial});state='playing';ended=false;if(!isTutorial){save.runs++;world.event('PlayGame');}persist();attachHud();muteForPause=false;setMusic('M_0002_InGame.wav');tipTime=0;}
+function startRun(isTutorial=false){if(BOSS_TEST&&!isTutorial)return startBossTest();resetInput();tutorial=isTutorial;pendingMission=[];advanceMissions();for(const m of activeMissions())if(!m.cumulative)save.missionProgress[m.id]=0;let effects={};const map={double:{doubleCoins:true},magnet:{magnet:true},blood:{blood:true},armor:{armor:2},megaArmor:{armor:3},power:{power:2},megaPower:{power:3},glide:{glide:true},life:{life:true},head500:{headstart:500},head750:{headstart:750},head1000:{headstart:1000},head1250:{headstart:1250},head1500:{headstart:1500}};if(!isTutorial)for(const id of save.equipped){if((save.stock[id]||0)>0&&map[id]){Object.assign(effects,map[id]);save.stock[id]--;}}effects.longShield=!!save.permanent.longShield;effects.fullHealth=!!save.permanent.fullHealth;world=new World({weapon:save.selected,onEvent:event,effects,patterns:normalData.patterns,tutorial:isTutorial});emberTrail.reset(world);state='playing';ended=false;if(!isTutorial){save.runs++;world.event('PlayGame');}persist();attachHud();muteForPause=false;setMusic('M_0002_InGame.wav');tipTime=0;}
 function finishRun(abandon=false){if(!world||ended)return;ended=true;if(BOSS_TEST){if(!abandon)gameOver();return;}if(tutorial){if(!abandon)gameOver();return;}save.coins+=world.coins;save.best=Math.max(save.best,Math.floor(world.distance));save.scores.push({distance:Math.floor(world.distance),coins:world.coins,kills:world.kills,weapon:world.weapon.id,date:new Date().toISOString()});save.scores.sort((a,b)=>b.distance-a.distance);save.scores=save.scores.slice(0,10);persist();if(!abandon)gameOver();}
 function gameOver(){state='over';resetInput();const {s,c}=screen('Game Over',{close:menu,balance:true});s.classList.add('center');c.style.flex='initial';c.innerHTML=`<p>${Math.floor(world.distance)>=save.best?'A new line in the record book.':'One more run. One more page.'}</p><div class="stats"><div><strong>${fmt(world.distance)}m</strong><span>DISTANCE</span></div><div><strong>${fmt(world.coins)}</strong><span>COINS</span></div><div><strong>${world.kills}</strong><span>ENEMIES</span></div></div><p>Personal best: <b>${fmt(save.best)}m</b></p>`;const a=document.createElement('div');a.className='actions';a.append(artButton('Menu',menu),artButton('Weapons',playSelect),artButton('Retry',()=>startRun()));s.append(a);const b=artButton('Share score',async()=>{const message=`I ran ${fmt(world.distance)}m in Sketchman!`;try{if(navigator.share)await navigator.share({title:'Sketchman',text:message,url:location.href});else{await navigator.clipboard.writeText(`${message} ${location.href}`);toast('Score and link copied.');}}catch{toast(message);}});c.append(b);}
 function pause(){if(state!=='playing')return;state='paused';resetInput();muteForPause=true;updateMusic();const overlay=document.createElement('div');overlay.className='paused';ui.append(overlay);const panel=document.createElement('section');panel.className='screen center sketch-pause';panel.innerHTML='<h1>PAUSED</h1>';const a=document.createElement('div');a.className='actions';a.append(artButton('Resume',resume),artButton('Shop',()=>shop('paused')),artButton('Controls',()=>controlsScreen(()=>{state='playing';attachHud();pause();})),artButton('Restart',()=>{finishRun(true);startRun();}),artButton('Menu',()=>{finishRun(true);menu();}));panel.append(a);overlay.append(panel);}
@@ -577,7 +585,7 @@ window.addEventListener('keydown',e=>{const k=e.code;
  if(state==='select'&&(k==='KeyA'||k==='KeyD')){e.preventDefault();if(!e.target.closest?.('.weapon-selection'))document.querySelector('.weapon-selection')?.dispatchEvent(new KeyboardEvent('keydown',{key:k==='KeyA'?'a':'d',bubbles:false}));return;}if(state!=='playing')return;const c=save.settings.controls;if(k!==c.jump&&k!==c.fire)return;e.preventDefault();keys.add(k);if(k===c.jump)world.jump();if(k===c.fire&&world.cooldown<=0)world.shoot();syncInput();});window.addEventListener('keyup',e=>{keys.delete(e.code);syncInput();});window.addEventListener('blur',()=>{if(state==='playing')pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause();});window.addEventListener('contextmenu',e=>{if(e.target.closest('#frame'))e.preventDefault();});if(matchMedia('(pointer: coarse)').matches)$('#hint').textContent='Touch controls · landscape recommended';const toggleFullscreen=async()=>{sfx('click');const app=$('#app');try{if(document.fullscreenElement){await document.exitFullscreen();}else if(app.requestFullscreen){await app.requestFullscreen();if(window.screen.orientation?.lock)await window.screen.orientation.lock('landscape').catch(()=>{});}else{app.classList.toggle('app-expanded');}}catch{app.classList.toggle('app-expanded');}resizeViewport();};$('#fullscreen').onclick=toggleFullscreen;$('#mobileFullscreen').onclick=toggleFullscreen;
 let simulationRemainder=0;
 function frame(now){const dt=Math.max(0,Math.min((now-last)/1000||0,.1));last=now;anim+=dt;
- if(state==='playing'&&world){simulationRemainder+=dt;while(simulationRemainder>=1/60-1e-9&&state==='playing'){world.update(1/60);tipTime+=1/60;simulationRemainder-=1/60;if(world.dead&&world.deathTime>1.25)finishRun();}}else simulationRemainder=0;
+ if(state==='playing'&&world){simulationRemainder+=dt;while(simulationRemainder>=1/60-1e-9&&state==='playing'){world.update(1/60);emberTrail.step(world,selectedSkin==='obsidian_ember',1/60,PLAYER_X);tipTime+=1/60;simulationRemainder-=1/60;if(world.dead&&world.deathTime>1.25)finishRun();}}else simulationRemainder=0;
  if(world&&['playing','paused','over'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}else if(state==='skins')updateSkinPreview();requestAnimationFrame(frame);
 }
 async function boot(){try{const skinThumbsReady=preloadSkinThumbnails().catch(e=>{console.error('Skin thumbnails failed:',e);return 0;});const bossAudioReady=soundPlayer.preload([BOSS_SHOT_SOUND,BOSS_COCK_SOUND]);let atlasProgress=0,uiProgress=0;const progress=()=>{$('#progress').value=atlasProgress*.7+uiProgress*.3;};$('#loadStatus').textContent='Loading artwork and menu textures';const uiReady=preloadUiImages(UI_IMAGE_URLS,{onProgress:(done,total)=>{uiProgress=done/total*100;progress();}});uiReady.catch(()=>{});warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
