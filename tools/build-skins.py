@@ -328,6 +328,62 @@ def paint_crimson_frame(source: Image.Image, xoff: int, yoff: int, frame_name: s
             dst[x, y] = (*col, a)
     return out, face
 
+
+# Frost Runner material: faceted, bright translucent-looking ice. The outline,
+# the alpha channel, every trim offset and every pose come from the APK.
+# Each source sprite is recolored ONLY for this one skin; the frost particles
+# are a separate cosmetic effect rendered at the original actor anchor.
+def paint_frost_frame(source: Image.Image, xoff: int, yoff: int, frame_name: str):
+    source = source.convert("RGBA")
+    w, h = source.size
+    sp = source.load()
+    out = Image.new("RGBA", source.size)
+    dest = out.load()
+    face = _crimson_face(source, xoff, yoff, frame_name)
+    distances = _crimson_ink_distance(source)
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = sp[x, y]
+            if not a:
+                continue
+            fx, fy = x + xoff, y + yoff
+            lum = .2126 * r + .7152 * g + .0722 * b
+            # Angular frosted facets at multiple scales. The sharp edges and
+            # pale centers imitate fractured transparent ice, not a blue paint.
+            cellx, celly = fx // 12, fy // 12
+            fragment = hash2(cellx, celly, 93)
+            offset = hash2(cellx, celly, 48) * 7.0
+            u, v = (fx + offset) % 12, (fy + offset * .6) % 12
+            ridge = abs(u * .82 + v * .65 - 10)
+            diag = max(0., 1. - ridge / 2.2)
+            crack = max(0., 1. - abs(u * .44 - v * .85 + 1.7) / .95)
+            prism = max(0., math.sin(fx * .21 - fy * .16 + fragment * 4.6))
+            center = distances[y * w + x]
+            if lum < 86:
+                # Crisp deep-cobalt ink is essential to the reference design.
+                col = mix((1, 23, 99), (8, 54, 166), lum / 86)
+            elif lum < 148:
+                col = mix((11, 61, 166), (43, 151, 237), (lum - 86) / 62)
+            else:
+                shade = max(0., min(1., .44 + (lum - 148) / 107 * .29 + (fragment - .5) * .38))
+                col = mix((36, 115, 214), (202, 242, 255), shade)
+                col = mix(col, (247, 253, 255), min(.83, diag * .50 + crack * .27 + prism * .15))
+                if center > 2:
+                    col = mix(col, (236, 251, 255), min(.42, (center - 2) / 7.0))
+            # The ice head is translucent-looking and full of bright facets.
+            # Unlike Crimson, its original white face is NOT kept plain white.
+            if face:
+                dx = (x - face["cx"]) / max(1., face["rx"])
+                dy = (y - face["cy"]) / max(1., face["ry"])
+                radius = math.hypot(dx, dy)
+                if radius < 1.08 and lum > 157:
+                    upper = max(0., 1. - (dy + .25) * .54)
+                    ice = mix((99, 190, 252), (250, 254, 255), min(1., upper * .67 + fragment * .23))
+                    ice = mix(ice, (255, 255, 255), min(.67, diag * .43 + crack * .28))
+                    col = ice
+            dest[x, y] = (*col, a)
+    return out
+
 def pack(frames, width=ATLAS_WIDTH):
     # Same packing for all nine variants, based on ORIGINAL trim sizes.
     # The original 132x143 frame-space positions remain in sprites.json.
@@ -385,6 +441,8 @@ def build(root=DIST, output=OUTPUT):
                     print("Crimson face registration:", head, flush=True)
                     if head is None:
                         raise AssertionError("Could not identify the original running-frame face")
+            elif skin == "frost_runner":
+                paint = paint_frost_frame(src, v[11], v[12], name)
             else:
                 paint = paint_frame(src, v[11], v[12], skin, material)
             # Exact alpha-preservation, including antialiased edges.
