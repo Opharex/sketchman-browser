@@ -384,6 +384,136 @@ def paint_frost_frame(source: Image.Image, xoff: int, yoff: int, frame_name: str
             dest[x, y] = (*col, a)
     return out
 
+
+# Solar material: this is a separate Sunset Blaze rendering branch.
+# Source pose, canvas size, trim offsets, transparency and animation order
+# remain completely identical to the original APK frames.
+def _solar_alpha_distance(source: Image.Image):
+    """Distance to transparent backdrop; keeps the orange rim on silhouettes."""
+    w, h = source.size
+    px = source.load()
+    far = w + h + 5
+    distance = [far] * (w * h)
+    for y in range(h):
+        for x in range(w):
+            if px[x, y][3] < 115:
+                distance[y * w + x] = 0
+    for y in range(h):
+        for x in range(w):
+            i = y * w + x
+            if x:
+                distance[i] = min(distance[i], distance[i-1] + 1)
+            if y:
+                distance[i] = min(distance[i], distance[i-w] + 1)
+    for y in range(h - 1, -1, -1):
+        for x in range(w - 1, -1, -1):
+            i = y * w + x
+            if x + 1 < w:
+                distance[i] = min(distance[i], distance[i+1] + 1)
+            if y + 1 < h:
+                distance[i] = min(distance[i], distance[i+w] + 1)
+    return distance
+
+
+def _solar_smoothstep(low, high, value):
+    t = max(0., min(1., (value - low) / (high - low)))
+    return t*t*(3 - 2*t)
+
+
+def paint_sunset_frame(source: Image.Image, xoff: int, yoff: int, frame_name: str):
+    """Make the original stick-figure sprite resemble the approved solar art.
+
+    1. Detect the actual white face from the original APK sprite.
+    2. Paint its hot reflective solar orb WITHOUT re-drawing anatomy.
+    3. Render multiscale molten ribbon patterns within the existing limbs,
+       using their own interior-distance field for contour-flow.
+    4. Keep a dark burnt-orange ink contour and a light orange exterior rim.
+    No new alpha pixels, pose estimates, or runtime graphics are introduced.
+    """
+    source = source.convert("RGBA")
+    width, height = source.size
+    src = source.load()
+    output = Image.new("RGBA", source.size)
+    dst = output.load()
+    face = _crimson_face(source, xoff, yoff, frame_name)
+    ink_distance = _crimson_ink_distance(source)
+    outside_distance = _solar_alpha_distance(source)
+
+    for y in range(height):
+        for x in range(width):
+            r, g, b, alpha = src[x, y]
+            if not alpha:
+                continue
+            luminance = .2126*r + .7152*g + .0722*b
+            fx, fy = x + xoff, y + yoff
+            edge = outside_distance[y*width + x]
+            inside = ink_distance[y*width + x]
+
+            if face:
+                dx = (x - face["cx"]) / max(1., face["rx"])
+                dy = (y - face["cy"]) / max(1., face["ry"])
+                radius = math.hypot(dx, dy)
+                if radius < 1.09 and luminance > 160:
+                    # Upper-right white-hot glossy highlight, amber midlayer,
+                    # and red-orange molten swirls around the lower-left.
+                    hotspot = math.exp(-((dx-.34)**2 + (dy+.30)**2)/.25)
+                    swirl = .5 + .5*math.sin(dx*4.5 + dy*3.7 +
+                                             noise(fx, fy, 9, 4)*2.5)
+                    heat = max(0., min(1., .52 + hotspot*.34 - dy*.16 +
+                                       swirl*.13))
+                    color = mix((255, 89, 14), (255, 202, 17),
+                                _solar_smoothstep(.08, .68, heat))
+                    color = mix(color, (255, 252, 148),
+                                _solar_smoothstep(.54, .89, heat))
+                    color = mix(color, (255, 255, 241),
+                                _solar_smoothstep(.85, .99, heat)*.80)
+                    if dx < -.12 and dy > .13:
+                        flame = max(0., math.sin(dx*9 - dy*9 + swirl*4))*.42
+                        color = mix(color, (245, 45, 19), flame)
+                    dst[x, y] = (*color, alpha)
+                    continue
+                if radius < 1.50 and luminance < 165:
+                    # Dark red inner head ring plus outer fiery orange lip.
+                    inner_rim = max(0., 1. - abs(radius-1.13)/.28)
+                    color = mix((134, 27, 0), (251, 88, 0),
+                                inner_rim*.50)
+                    if edge <= 2:
+                        color = (255, 149, 13)
+                    dst[x, y] = (*color, alpha)
+                    continue
+
+            # Fire ribbons follow the contours in each *actual* pose rather
+            # than being stamped onto a single generic runner pose.
+            small = noise(fx, fy, 9, 1)
+            large = noise(fx, fy, 18, 17)
+            flame1 = math.sin(inside*1.55 + large*4.1 + fx*.069 - fy*.083)
+            flame2 = math.sin(inside*.85 - small*4.2 + fx*.19 + fy*.055)
+            heat = max(0., min(1., .49 + .22*flame1 + .19*flame2 +
+                                .13*(large-.5)))
+
+            if luminance < 105 and edge <= 3:
+                # Burnt-red inset contour, separate from the bright outer lip.
+                color = mix((131, 24, 0), (180, 45, 0),
+                            max(0., luminance/105))
+            else:
+                color = mix((247, 64, 33), (253, 131, 9),
+                            _solar_smoothstep(.02, .44, heat))
+                color = mix(color, (255, 199, 8),
+                            _solar_smoothstep(.38, .80, heat))
+                color = mix(color, (255, 243, 41),
+                            _solar_smoothstep(.71, .92, heat))
+                color = mix(color, (255, 253, 173),
+                            _solar_smoothstep(.92, 1., heat)*.70)
+                light = (luminance - 110)/145.
+                color = mix((209, 59, 12), color,
+                            .78 + .22*max(0., min(1., light)))
+            if edge <= 1:
+                color = (255, 151, 16)
+            elif edge <= 2 and luminance < 115:
+                color = mix(color, (237, 93, 0), .28)
+            dst[x, y] = (*color, alpha)
+    return output
+
 def pack(frames, width=ATLAS_WIDTH):
     # Same packing for all nine variants, based on ORIGINAL trim sizes.
     # The original 132x143 frame-space positions remain in sprites.json.
@@ -443,6 +573,8 @@ def build(root=DIST, output=OUTPUT):
                         raise AssertionError("Could not identify the original running-frame face")
             elif skin == "frost_runner":
                 paint = paint_frost_frame(src, v[11], v[12], name)
+            elif skin == "sunset_blaze":
+                paint = paint_sunset_frame(src, v[11], v[12], name)
             else:
                 paint = paint_frame(src, v[11], v[12], skin, material)
             # Exact alpha-preservation, including antialiased edges.
