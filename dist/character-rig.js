@@ -21,6 +21,7 @@ export const BONES=Object.freeze([
  {id:'footR',parent:'kneeR',x:4,y:19},
  {id:'weapon',parent:'handR',x:0,y:0}
 ]);
+export const RUN_BIND_OFFSETS=Object.freeze({root:{x:-5,y:-7},hips:{x:-7,y:-5},torso:{x:-9,y:0},neck:{x:-7,y:3},head:{x:-4,y:-5},shoulderL:{x:-3,y:2},elbowL:{x:-5,y:-7},handL:{x:-2,y:-6},shoulderR:{x:1,y:-1},elbowR:{x:4,y:-6},handR:{x:8,y:-6},thighL:{x:-5,y:-1},kneeL:{x:-8,y:1},footL:{x:-4,y:0},thighR:{x:4,y:-3},kneeR:{x:7,y:-4},footR:{x:8,y:-4}});
 export function buildPose(rotations={},offsets={}){
  const joints={};
  for(const b of BONES){
