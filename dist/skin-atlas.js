@@ -13,7 +13,7 @@ const imageLoads=new Map(),atlasImages=new Map(),thumbnails=new Map();
 
 export const isAtlasSkin=id=>available.has(id);
 // Update Crimson alone; all other skin images retain their existing URLs.
-const assetVersion=id=>id==='crimson_bolt'?'crimson-refine-01':id==='frost_runner'?'frost-refine-01':ATLAS_VERSION;
+const assetVersion=id=>id==='crimson_bolt'?'crimson-refine-01':id==='frost_runner'?'frost-refine-01':id==='sunset_blaze'?'sunset-refine-01':ATLAS_VERSION;
 export const thumbnailUrl=id=>ROOT+id+'-thumb.png?v='+assetVersion(id);
 
 async function fetchManifest(){
