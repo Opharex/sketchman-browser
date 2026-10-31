@@ -15,7 +15,8 @@ import {effectSound,EFFECT_TEXTURES} from './destruction.js';
 import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
-import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites} from './skins.js?v=skins-cleanup-01';
+import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites} from './skins.js?v=nine-skins-01';
+import {isAtlasSkin,thumbnailUrl,skinThumbnail,preloadSkinThumbnails,ensureSkinAtlas,releaseInactiveAtlases,getAtlasFrame,validateSkinMetadata} from './skin-atlas.js?v=nine-skins-01';
 import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=boss-rig-sync-01';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const BOSS_TEST=new URLSearchParams(location.search).get('bossTest')==='1';
@@ -101,7 +102,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'SKINS CLEANUP 01';;;
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'NINE SKINS UPDATE';;;
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -229,12 +230,27 @@ function renderOriginalOptions(force=false){
 }
 function prepareMenus(){
  prepareOptionsPanels();getMainMenuPaint();versionSplashImage=menuLettering(VERSION_SPLASH);
- for(const label of ['More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow'])menuLettering(label);
+ for(const label of ['More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow',...SKINS.map(s=>s.name)])menuLettering(label);
  for(const code of [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c=>'Key'+c).concat([...'0123456789'].flatMap(c=>['Digit'+c,'Numpad'+c]),['Space','Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Backspace',...Object.values(save.settings.controls)]))menuLettering(keyLabel(code));
  // These source layers are now retired; the renderer only keeps finished artwork.
  for(const name of ['IMM_MainMenu_01','IMM_Options_01','IMM_Options_MusicON_01','IMM_Options_SoundON_01']){const source=assets[name];source.width=source.height=0;delete assets[name];}
 }
-function drawFrame(n,x,y,scale=1,flip=false,alpha=1,rotation=0){const im=assets[n],meta=sprites[n];if(!im||!meta)return;const p=framePlacement(meta,0,0,scale);ctx.save();ctx.translate(x,y);ctx.rotate(rotation);if(flip)ctx.scale(-1,1);ctx.globalAlpha=alpha;ctx.drawImage(im,p.x,p.y,p.w,p.h);ctx.restore();}
+// Atlas frames retain the original APK frame's trim, size, origin and timing.
+// No recoloring, Canvas allocations or shader work occurs during gameplay.
+function drawSprite(target,n,x,y,scale=1,flip=false,alpha=1,rotation=0){
+ const atlas=getAtlasFrame(n),meta=sprites[atlas?.frame||n],im=atlas?.image||assets[n];
+ if(!im||!meta){if(n.startsWith('SKIN_'))console.error('Missing equipped skin frame:',n);return false;}
+ const p=framePlacement(meta,0,0,scale);
+ target.save();target.translate(x,y);target.rotate(rotation);
+ if(flip)target.scale(-1,1);
+ target.globalAlpha=alpha;
+ if(atlas)target.drawImage(im,...atlas.box,p.x,p.y,p.w,p.h);
+ else target.drawImage(im,p.x,p.y,p.w,p.h);
+ target.restore();return true;
+}
+function drawFrame(n,x,y,scale=1,flip=false,alpha=1,rotation=0){
+ return drawSprite(ctx,n,x,y,scale,flip,alpha,rotation);
+}
 function drawHealthBar(x,y,fraction){
  drawFrame('GPROP_DamageBarBase_01',x,y,1);
  ctx.save();ctx.beginPath();ctx.rect(x-32,y-3,64*fraction,6);ctx.clip();drawFrame('GPROP_DamageBar_01',x,y,1);ctx.restore();
@@ -313,13 +329,97 @@ const MAIN_MENU_BUTTONS=[
  ['Play',playSelect],['Shop',()=>shop('menu')],['Scores',scores],
  ['Tutorial',()=>startRun(true)],['Options',settings],['Skins',skinsScreen],['Controls',()=>controlsScreen(menu)]
 ];
-function skinsScreen(){
- state='skins';resetInput();const {s,c}=screen('Skins',{close:menu});s.classList.add('skins-screen');
- const intro=document.createElement('p');intro.textContent='Choose a character appearance. Skins are visual only and never affect movement, hitboxes, weapons, or damage.';c.append(intro);
- const choices=document.createElement('div');choices.className='skin-choices';c.append(choices);
- for(const skin of SKINS){const b=artButton(skin.name,()=>{equipSkin(skin.id);skinsScreen();});b.classList.add('skin-choice');b.setAttribute('aria-pressed',String(selectedSkin===skin.id));choices.append(b);}
- const note=document.createElement('p');note.className='skin-note';note.textContent='Shadow uses the original animation frames and collision geometry.';c.append(note);
+let skinPreviewCanvas=null,skinPreviewStatus=null;
+const iconCanvasFor=n=>{
+ const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;
+ const ic=canvas.getContext('2d');
+ drawSprite(ic,n,64,67,.87);
+ return canvas.toDataURL('image/png');
+};
+const STATIC_SKIN_ICONS=new Map();
+function skinIcon(id){
+ if(isAtlasSkin(id))return thumbnailUrl(id);
+ if(!STATIC_SKIN_ICONS.has(id)){
+  const frame=cosmeticFrame('CHR_Run_01',id);
+  STATIC_SKIN_ICONS.set(id,iconCanvasFor(frame));
+ }
+ return STATIC_SKIN_ICONS.get(id);
 }
+function updateSkinPreview(){
+ if(state!=='skins'||!skinPreviewCanvas)return;
+ const pc=skinPreviewCanvas.getContext('2d');
+ pc.clearRect(0,0,skinPreviewCanvas.width,skinPreviewCanvas.height);
+ const frameName='CHR_Run_'+String(frameOf('run',anim)).padStart(2,'0');
+ drawSprite(pc,cosmeticFrame(frameName,selectedSkin),66,71,1);
+}
+function skinsScreen(){
+ state='skins';resetInput();
+ const {s,c}=screen('Skins',{close:menu});s.classList.add('skins-screen');
+ const intro=document.createElement('p');intro.className='skin-intro';
+ intro.textContent='Original Sketchman, Shadow and nine special materials. Skins change appearance only.';
+ c.append(intro);
+ const layout=document.createElement('div');layout.className='skin-layout';c.append(layout);
+ const feature=document.createElement('div');feature.className='skin-feature';layout.append(feature);
+ skinPreviewCanvas=document.createElement('canvas');
+ skinPreviewCanvas.className='skin-preview-canvas';skinPreviewCanvas.width=132;skinPreviewCanvas.height=143;
+ const featureInfo=document.createElement('div');
+ feature.append(skinPreviewCanvas,featureInfo);
+ const featureName=document.createElement('div');featureName.className='skin-feature-name';
+ const featureState=document.createElement('div');featureState.className='skin-feature-state';
+ featureInfo.append(featureName,featureState);
+ const collection=document.createElement('div');collection.className='skin-collection';layout.append(collection);
+ const heading=document.createElement('div');heading.className='skin-collection-heading';
+ heading.textContent='Choose your look';
+ const counter=document.createElement('span');counter.textContent=SKINS.length+' skins';heading.append(counter);
+ collection.append(heading);
+ const scroller=document.createElement('div');scroller.className='skin-scroll';
+ scroller.tabIndex=0;scroller.setAttribute('role','region');scroller.setAttribute('aria-label','Scrollable skin collection');collection.append(scroller);
+ const grid=document.createElement('div');grid.className='skin-grid';scroller.append(grid);
+ const info=document.createElement('p');info.className='skin-menu-status';info.setAttribute('role','status');c.append(info);
+ skinPreviewStatus=info;
+ const cards=new Map();
+ const update=()=>{
+  for(const [id,b]of cards){const equipped=id===selectedSkin;
+   b.setAttribute('aria-pressed',String(equipped));
+   b.querySelector('.skin-card-status').textContent=equipped?'Equipped':'';
+  }
+  featureName.textContent=getSkin(selectedSkin).name;featureState.textContent='Equipped · visual only';
+  updateSkinPreview();
+ };
+ let pending=false,scrollStartY=0,dragScroll=false;
+ scroller.addEventListener('pointerdown',e=>{scrollStartY=e.clientY;dragScroll=false;},{passive:true});
+ scroller.addEventListener('pointermove',e=>{if(Math.abs(e.clientY-scrollStartY)>8)dragScroll=true;},{passive:true});
+ scroller.addEventListener('pointerup',()=>{requestAnimationFrame(()=>dragScroll=false)},{passive:true});
+ const select=async id=>{
+  if(pending||dragScroll||id===selectedSkin)return;
+  pending=true;info.textContent='Preparing '+getSkin(id).name+'…';
+  for(const b of cards.values())b.disabled=true;
+  try{
+   if(isAtlasSkin(id)){await ensureSkinAtlas(id);validateSkinMetadata(sprites);}
+   equipSkin(id);releaseInactiveAtlases(id);
+   update();info.textContent=getSkin(id).name+' equipped';
+  }catch(error){
+   console.error('Unable to equip skin',id,error);
+   info.textContent='Skin could not load: '+error.message;
+  }finally{pending=false;for(const b of cards.values())b.disabled=false;}
+ };
+ for(const skin of SKINS){
+  const b=document.createElement('button');b.type='button';b.className='skin-card';
+  b.setAttribute('aria-label','Equip '+skin.name);
+  b.setAttribute('aria-pressed',String(skin.id===selectedSkin));
+  const image=document.createElement('img');image.className='skin-thumb';
+  image.src=skinIcon(skin.id);image.alt='';image.draggable=false;
+  const label=document.createElement('span');label.className='skin-card-name';label.textContent=skin.name;
+  const badge=document.createElement('span');badge.className='skin-card-status';
+  b.append(image,label,badge);
+  b.addEventListener('click',()=>select(skin.id));
+  cards.set(skin.id,b);grid.append(b);
+ }
+ update();
+ if(!skinThumbnail('crimson_bolt'))info.textContent='Skin assets unavailable. Select Original or Shadow, or reload after deployment.';
+ else info.textContent='Swipe or scroll the grid to browse all '+SKINS.length+' skins.';
+}
+
 function menu(){
  if(world&&!ended)finishRun(true);
  state='menu';world=null;muteForPause=false;hoveredMainMenuButton=null;resetInput();renderMenu();
@@ -473,15 +573,17 @@ window.addEventListener('keydown',e=>{const k=e.code;
 let simulationRemainder=0;
 function frame(now){const dt=Math.max(0,Math.min((now-last)/1000||0,.1));last=now;anim+=dt;
  if(state==='playing'&&world){simulationRemainder+=dt;while(simulationRemainder>=1/60-1e-9&&state==='playing'){world.update(1/60);tipTime+=1/60;simulationRemainder-=1/60;if(world.dead&&world.deathTime>1.25)finishRun();}}else simulationRemainder=0;
- if(world&&['playing','paused','over'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}requestAnimationFrame(frame);
+ if(world&&['playing','paused','over'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}else if(state==='skins')updateSkinPreview();requestAnimationFrame(frame);
 }
-async function boot(){try{const bossAudioReady=soundPlayer.preload([BOSS_SHOT_SOUND,BOSS_COCK_SOUND]);let atlasProgress=0,uiProgress=0;const progress=()=>{$('#progress').value=atlasProgress*.7+uiProgress*.3;};$('#loadStatus').textContent='Loading artwork and menu textures';const uiReady=preloadUiImages(UI_IMAGE_URLS,{onProgress:(done,total)=>{uiProgress=done/total*100;progress();}});uiReady.catch(()=>{});warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
+async function boot(){try{const skinThumbsReady=preloadSkinThumbnails().catch(e=>{console.error('Skin thumbnails failed:',e);return 0;});const bossAudioReady=soundPlayer.preload([BOSS_SHOT_SOUND,BOSS_COCK_SOUND]);let atlasProgress=0,uiProgress=0;const progress=()=>{$('#progress').value=atlasProgress*.7+uiProgress*.3;};$('#loadStatus').textContent='Loading artwork and menu textures';const uiReady=preloadUiImages(UI_IMAGE_URLS,{onProgress:(done,total)=>{uiProgress=done/total*100;progress();}});uiReady.catch(()=>{});warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
  await Promise.all(Array.from({length:2},async()=>{while(queue.length){const sheet=queue.shift();await new Promise((resolve,reject)=>{
   const im=new Image();im.onload=()=>{try{for(const n of sheet.names){const v=sprites[n].v,c=document.createElement('canvas');c.width=v[7];c.height=v[8];const context=c.getContext('2d');if(!context)throw new Error('Graphics memory unavailable');context.drawImage(im,v[1],v[2],v[7],v[8],0,0,v[7],v[8]);assets[n]=c;}loaded++;atlasProgress=loaded/sheets.size*100;progress();resolve();}catch(error){reject(error);}finally{im.onload=null;im.onerror=null;im.removeAttribute('src');}};
   im.onerror=()=>reject(new Error('Missing atlas: '+sheet.atlas));im.src=`assets/Graphics/${sheet.atlas}/${sheet.atlas}_${sheet.index+1}.png`;
  });}}));bossRig=createBossRig(assets.ENM_EnemyBOSS_Idle_01,{trimmed:true});prepareShadowSprites(assets,sprites);
  await Promise.all([...new Set([...EFFECT_TEXTURES,'ParExpStar_01','ParCoin01','gamePaper'])].map(n=>new Promise(resolve=>{const im=new Image();im.onload=()=>{assets[n]=im;resolve();};im.onerror=resolve;im.src=n==='gamePaper'?'assets/Graphics/LOC_Locations/SCN_Background.jpg':`assets/Graphics/Particles/${n}.png`;})));// Every UI image (including hover textures and HUD icons) is decoded before handoff.
- uiImages=await uiReady;await bossAudioReady;
+ uiImages=await uiReady;await bossAudioReady;await skinThumbsReady;
+ if(isAtlasSkin(selectedSkin))try{await ensureSkinAtlas(selectedSkin);validateSkinMetadata(sprites);}catch(error){console.error('Saved skin atlas unavailable:',error);selectedSkin=DEFAULT_SKIN;}
+
  const menuFont=uiImages.get('assets/Graphics/Fonts/S1_Dialogs22_1.png');setMenuFont(menuFont);prepareMenus();updateControlHint();$('#progress').value=100;$('#loadStatus').textContent='Ready';await intro;$('#loading').remove();menu();last=performance.now();requestAnimationFrame(frame);}catch(e){$('#loadStatus').textContent='Could not load the game. Reload to try again.';console.error(e);}}
 // Read-only diagnostic surface for verifying the running game.
 window.sketchman={get state(){return state;},get world(){return world;},get save(){return JSON.parse(JSON.stringify(save));}};
