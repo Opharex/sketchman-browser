@@ -514,6 +514,171 @@ def paint_sunset_frame(source: Image.Image, xoff: int, yoff: int, frame_name: st
             dst[x, y] = (*color, alpha)
     return output
 
+
+# Obsidian Ember: independent, pre-baked material. No other skin renderer,
+# sprite alpha or animation pose is touched by this implementation.
+def _ember_smoothstep(lo, hi, v):
+    t = max(0., min(1., (v-lo)/(hi-lo)))
+    return t*t*(3-2*t)
+
+
+def _ember_voronoi(x, y, period, seed):
+    """Rugged volcanic plates separated by connected molten fault lines."""
+    gx = int(math.floor(x/period))
+    gy = int(math.floor(y/period))
+    nearest, runner_up = 1e8, 1e8
+    winning_tile = (0, 0)
+    for oy in (-1, 0, 1):
+        for ox in (-1, 0, 1):
+            xx = gx+ox
+            yy = gy+oy
+            # Jitter produces irregular basalt slabs, not a square grid.
+            cx = (xx+.5+(hash2(xx, yy, seed)-.5)*.82)*period
+            cy = (yy+.5+(hash2(xx, yy, seed+33)-.5)*.82)*period
+            dx, dy = x-cx, y-cy
+            d = dx*dx + dy*dy
+            if d < nearest:
+                runner_up = nearest
+                nearest = d
+                winning_tile = (xx, yy)
+            elif d < runner_up:
+                runner_up = d
+    # Difference of nearest distances is zero on plate boundaries.
+    seam = max(0., math.sqrt(runner_up)-math.sqrt(nearest))
+    return seam, hash2(winning_tile[0], winning_tile[1], seed+63)
+
+
+def _ember_mix(a, b, strength):
+    return mix(a, b, max(0., min(1., strength)))
+
+
+def _ember_shade(rock, heat):
+    """Black volcanic chunks around yellow-hot cracks and red ember halos."""
+    # Heat is zero on cooled rock and close to one along molten fissures.
+    if heat <= .085:
+        return rock
+    if heat <= .25:
+        return _ember_mix(rock, (109, 17, 6), _ember_smoothstep(.075, .25, heat))
+    if heat <= .44:
+        return _ember_mix((109, 17, 6), (216, 43, 2),
+                          _ember_smoothstep(.25, .44, heat))
+    if heat <= .65:
+        return _ember_mix((216, 43, 2), (255, 98, 4),
+                          _ember_smoothstep(.44, .65, heat))
+    if heat <= .82:
+        return _ember_mix((255, 98, 4), (255, 194, 16),
+                          _ember_smoothstep(.65, .82, heat))
+    return _ember_mix((255, 194, 16), (255, 252, 108),
+                      _ember_smoothstep(.82, 1., heat))
+
+
+def build_obsidian_material(width=220, height=170):
+    """Generate a coherent multiscale 2D lava-crust texture once at build time.
+
+    Cracked basalt plates (Voronoi cells) make branching connected fissures;
+    finer fractures and noise add irregularity. This is baked into PNGs, never
+    evaluated during gameplay. Local light catches the raised rock surfaces.
+    """
+    image = []
+    for y in range(height):
+        row = []
+        for x in range(width):
+            # Distortion of plate edges prevents artificial straight segments.
+            warp_x = (noise(x, y, 14, 41)-.5)*7.2
+            warp_y = (noise(x, y, 15, 65)-.5)*7.2
+            xx, yy = x+warp_x, y+warp_y
+            large, tile = _ember_voronoi(xx, yy, 18, 17)
+            small, grain = _ember_voronoi(xx+6.5, yy-3.6, 9, 91)
+            rough = noise(x, y, 6, 72)
+            pits = noise(x, y, 3, 8)
+
+            # Mostly charcoal-black rock with uneven sculpted plates, not
+            # a plain black fill or an orange gradient.
+            gray = round(18 + tile*24 + rough*13 + pits*5)
+            rock = (gray+2, max(0,gray-2), gray+1)
+
+            # Broad molten channels with thinner branching networks.
+            vein1 = 1.0-_ember_smoothstep(.20, 3.6, large)
+            vein2 = (1.0-_ember_smoothstep(.12, 1.55, small))*.88
+            # Fine faults are intermittent to avoid making every pixel lava.
+            if grain < .25:
+                vein2 *= .37
+            lava = max(vein1, vein2)
+            lava = max(0., min(1., lava + (noise(x,y,7,117)-.5)*.16))
+
+            # Bright glints around heated stone edges help sell hot cracks.
+            near_seam = 1.0-_ember_smoothstep(1.4, 5.3, large)
+            if lava < .25 and near_seam > .18:
+                rock = _ember_mix(rock, (85, 34, 22), near_seam*.33)
+            row.append(_ember_shade(rock, lava))
+        image.append(row)
+    return image
+
+
+def paint_obsidian_frame(source: Image.Image, xoff: int, yoff: int,
+                         frame_name: str, material):
+    """Apply fractured volcanic stone to exactly the source's opaque pixels.
+
+    Head interior is treated as dark basalt with larger molten channels,
+    replacing the otherwise plain white circle. Alpha, trim and silhouette
+    remain byte-identical to each original mobile APK animation frame.
+    """
+    source = source.convert("RGBA")
+    w, h = source.size
+    src, result = source.load(), Image.new("RGBA", source.size)
+    dest = result.load()
+    face = _crimson_face(source, xoff, yoff, frame_name)
+    edge_map = _solar_alpha_distance(source)
+    face_count = 0
+    molten_count = 0
+    for y in range(h):
+        row_index = min(len(material)-1, max(0, y+yoff))
+        for x in range(w):
+            r, g, b, alpha = src[x,y]
+            if not alpha:
+                continue
+            global_x = min(len(material[0])-1, max(0, x+xoff))
+            color = material[row_index][global_x]
+            lum = .2126*r + .7152*g + .0722*b
+            edge = edge_map[y*w+x]
+
+            # Faceted, dynamic head: the original white area becomes dark
+            # cracked rock with major channels crossing the spherical surface.
+            if face:
+                dx = (x-face["cx"])/max(1., face["rx"])
+                dy = (y-face["cy"])/max(1., face["ry"])
+                radial = math.hypot(dx,dy)
+                if radial < 1.13 and lum>140:
+                    fx, fy = x+xoff, y+yoff
+                    rock_noise = noise(fx, fy, 5, 151)
+                    stone = round(20+rock_noise*25)
+                    basalt = (stone+4, stone-2, stone+1)
+                    core_a = abs(dx+.17-.29*math.sin(dy*4.0+rock_noise*2.8))
+                    core_b = abs(dy+.26-.21*math.sin(dx*5.1+rock_noise*2.5))
+                    # Both broad fire rivers and branching short cracks.
+                    crack_a = 1.0-_ember_smoothstep(.038,.29,core_a)
+                    crack_b = (1.0-_ember_smoothstep(.02,.14,core_b))*.80
+                    lava = max(crack_a,crack_b)
+                    # Reuse global fissures for convincing linked rock plates.
+                    # Do not recolor the whole head orange; leave dark islands.
+                    if max(color[0]-color[1],0)>75 and color[0]>135:
+                        lava = max(lava,.55)
+                    color = _ember_shade(basalt,lava)
+                    face_count += 1
+
+            # Dark charcoal outside the lava, glowing orange around the
+            # silhouette; bright crack pixels are never filled with white ink.
+            if edge <= 1 and alpha>60:
+                color = _ember_mix(color, (255, 133, 11), .92)
+            elif edge <= 2 and alpha>60:
+                color = _ember_mix(color, (221, 52, 4), .46)
+            elif lum < 84 and edge <= 4:
+                color = _ember_mix(color, (38, 16, 14), .65)
+            if color[0]>185 and color[1]>45 and color[0]>color[1]+65:
+                molten_count += 1
+            dest[x,y]=(*color,alpha)
+    return result,face_count,molten_count
+
 def pack(frames, width=ATLAS_WIDTH):
     # Same packing for all nine variants, based on ORIGINAL trim sizes.
     # The original 132x143 frame-space positions remain in sprites.json.
@@ -560,7 +725,7 @@ def build(root=DIST, output=OUTPUT):
                 "skins": sorted(SKINS)}
     (output / "manifest.json").write_text(json.dumps(manifest, separators=(",", ":"), sort_keys=True))
     for skin in SKINS:
-        material = create_material(skin)
+        material = build_obsidian_material() if skin == "obsidian_ember" else create_material(skin)
         atlas = Image.new("RGBA", (ATLAS_WIDTH, height))
         total = 0
         for name in names:
@@ -573,6 +738,16 @@ def build(root=DIST, output=OUTPUT):
                         raise AssertionError("Could not identify the original running-frame face")
             elif skin == "frost_runner":
                 paint = paint_frost_frame(src, v[11], v[12], name)
+            elif skin == "obsidian_ember":
+                paint, rock_head_pixels, lava_pixels = paint_obsidian_frame(
+                    src, v[11], v[12], name, material)
+                if name == POSE_FRAME:
+                    if rock_head_pixels < 90:
+                        raise AssertionError("Missing cracked volcanic head interior in running frame")
+                    if lava_pixels < 70:
+                        raise AssertionError("Missing bright lava cracks in running frame")
+                    print("Obsidian Ember head pixels:",rock_head_pixels,
+                          "molten pixels:",lava_pixels,flush=True)
             elif skin == "sunset_blaze":
                 paint = paint_sunset_frame(src, v[11], v[12], name)
                 if name == POSE_FRAME:
