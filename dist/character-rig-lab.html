@@ -71,9 +71,7 @@ function rebuild(){
 atlas.onload=()=>{
  refctx.clearRect(0,0,264,286);
  refctx.imageSmoothingEnabled=true;
- refctx.drawImage(atlas,477,133,104,104,18,12,208,208);
- // Reference displays 132x143 sprite at 2×, including trim offset.
- refctx.clearRect(0,0,264,286);
+ // Display the exact source trim inside its 132×143 base canvas, at 2×.
  refctx.drawImage(atlas,477,133,104,104,18,12,208,208);
  rebuild();
 };
