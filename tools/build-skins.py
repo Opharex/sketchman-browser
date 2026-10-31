@@ -615,107 +615,141 @@ def build_obsidian_material(width=220, height=170):
     return image
 
 
-def obsidian_body_mask_weight(r, g, b, a):
-    """Mask NAVY body ink, excluding white fill, exterior halo and cyan shadows.
+def obsidian_surface_mask(source: Image.Image):
+    """Recover the FULL solid character body, not just its dark line art.
 
-    Original alpha alone is insufficient: the source sprites include white
-    outlines and lighter gaps that should never receive molten fissures.
+    The mobile APK figure contains dark navy ink with wide pale highlights
+    inside the limbs and shoes. The previous mask discarded the pale interior
+    pixels, causing an almost-white lava-rock character. Build a morphological
+    closing of the ORIGINAL navy anatomy instead, filling narrow interior
+    highlights without painting into the rectangular sprite background.
     """
-    if a < 16:
-        return 0.
-    lum = .2126*r + .7152*g + .0722*b
-    darkness = 1.0 - _ember_smoothstep(108., 193., lum)
-    blue_ink = _ember_smoothstep(24., 76., b-g) * _ember_smoothstep(32., 83., b-r)
-    return darkness*blue_ink*(a/255.)
+    from PIL import ImageFilter
+    source = source.convert("RGBA")
+    w, h = source.size
+    ink = Image.new("L", (w,h), 0)
+    px, out = source.load(), ink.load()
+    for y in range(h):
+        for x in range(w):
+            r,g,b,a=px[x,y]
+            if a < 80:
+                continue
+            lum=.2126*r+.7152*g+.0722*b
+            if (lum < 176 and b-r > 30 and b-g > 18):
+                out[x,y]=255
+    # Seven-pixel closing fills white interior slivers and highlights of the
+    # original limbs, but does not fill the large gaps between limbs.
+    # Union with original navy pixels so border strokes aren't dropped.
+    closed=ink.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.MinFilter(7))
+    op=closed.load()
+    for y in range(h):
+        for x in range(w):
+            if out[x,y]>0:
+                op[x,y]=255
+    return closed
 
 
-def obsidian_head_mask_weight(x, y, face, lum):
-    """Separate mask for the round head's bright white interior."""
-    if face is None or lum <= 155:
+def obsidian_head_mask(x,y,face):
+    """Confine head lava and dark basalt to the detected circular white face."""
+    if not face:
         return 0.
-    dx = (x-face["cx"])/max(1., face["rx"])
-    dy = (y-face["cy"])/max(1., face["ry"])
-    return 1.0 - _ember_smoothstep(.95, 1.08, math.hypot(dx, dy))
+    dx=(x-face["cx"])/max(1.,face["rx"]+.25)
+    dy=(y-face["cy"])/max(1.,face["ry"]+.25)
+    return 1.0-_ember_smoothstep(.95,1.08,math.hypot(dx,dy))
 
 
 def paint_obsidian_frame(source: Image.Image, xoff: int, yoff: int,
                          frame_name: str, material):
-    """Composite obsidian exclusively through the original body/head masks.
+    """Black volcanic character, molten fissures ONLY inside solid body/head.
 
-    The lava texture never crosses into the light outline, negative space,
-    transparent background, cyan drop shadow or weapons outside dark ink.
-    The source geometry and alpha remain pixel-identical.
+    The complete body and head are painted from original blue strokes and
+    enclosed internal highlights, instead of preserving a white character.
+    The *outside* white halo/cyan shadow receives a subdued warm outline,
+    never any crack pattern. The original alpha channel, frame shape,
+    animation and trim metadata are never changed.
     """
     source=source.convert("RGBA")
     w,h=source.size
     px=source.load()
-    out=Image.new("RGBA", source.size)
-    dst=out.load()
+    rock_mask=obsidian_surface_mask(source).load()
+    result=Image.new("RGBA",source.size)
+    dest=result.load()
     face=_crimson_face(source,xoff,yoff,frame_name)
-    head_count=0
     molten_count=0
+    head_count=0
     protected_count=0
-
+    rock_count=0
+    white_count=0
+    alpha_count=0
     for y in range(h):
         fy=min(len(material)-1,max(0,y+yoff))
         for x in range(w):
-            r,g,b,a=px[x,y]
-            if a==0:
+            r,g,b,alpha=px[x,y]
+            if not alpha:
                 continue
-            lum=.2126*r+.7152*g+.0722*b
-            body=obsidian_body_mask_weight(r,g,b,a)
-            head=obsidian_head_mask_weight(x,y,face,lum)
-
-            # Explicit per-pixel material mask. Reuse original RGB for EVERY
-            # unmasked pixel rather than stamping a whole rectangular overlay.
-            if body < .40 and head < .40:
-                dst[x,y]=(r,g,b,a)
-                protected_count+=1
-                continue
-
+            alpha_count+=1
             fx=min(len(material[0])-1,max(0,x+xoff))
-            rock=material[fy][fx]
-            if head >= body:
-                dx=(x-face["cx"])/max(1.,face["rx"])
-                dy=(y-face["cy"])/max(1.,face["ry"])
-                rough=noise(x+xoff,y+yoff,5,151)
-                stone=round(20+rough*25)
-                basalt=(stone+4,max(0,stone-2),stone+1)
-                crack_a=1.0-_ember_smoothstep(
-                    .038,.29,abs(dx+.17-.29*math.sin(dy*4+rough*2.8)))
-                crack_b=(1.0-_ember_smoothstep(
-                    .02,.14,abs(dy+.26-.21*math.sin(dx*5.1+rough*2.5))))*.80
-                lava=max(crack_a,crack_b)
-                if rock[0]>135 and rock[0]-rock[1]>75:
-                    lava=max(lava,.55)
-                rock=_ember_shade(basalt,lava)
-                weight=head
-                head_count+=1
+            body=rock_mask[x,y]>127 and alpha>=45
+            head=obsidian_head_mask(x,y,face)>.42 and alpha>=45
+            if body or head:
+                # Dark basalt replaces both the blue ink AND its formerly
+                # white highlights, including shoes and head.
+                rock=material[fy][fx]
+                if head and not body:
+                    dx=(x-face["cx"])/max(1.,face["rx"])
+                    dy=(y-face["cy"])/max(1.,face["ry"])
+                    rough=noise(x+xoff,y+yoff,5,151)
+                    stone=round(19+rough*24)
+                    basalt=(stone+4,max(0,stone-2),stone+2)
+                    fault1=1.-_ember_smoothstep(.035,.29,
+                        abs(dx+.17-.29*math.sin(dy*4.+rough*2.8)))
+                    fault2=(1.-_ember_smoothstep(.02,.14,
+                        abs(dy+.26-.21*math.sin(dx*5.1+rough*2.5))))*.85
+                    hot=max(fault1,fault2)
+                    if rock[0]>130 and rock[0]-rock[1]>65:
+                        hot=max(hot,.50)
+                    rock=_ember_shade(basalt,hot)
+                    head_count+=1
+                elif head:
+                    head_count+=1
+                rock_count+=1
+                # Keep cracks completely confined to these solid material
+                # pixels. The outer silhouette uses a different color branch.
+                dest[x,y]=(*rock,alpha)
+                if rock[0]>185 and rock[1]>45 and rock[0]>rock[1]+65:
+                    molten_count+=1
             else:
-                weight=body
+                # Original opaque WHITE outline was the reported regression.
+                # Paint its cosmetic border warm burnt umber; translucent
+                # shadows become orange-red edge light. Never sample cracks.
+                if alpha < 85:
+                    border=(204,73,15)
+                else:
+                    lum=.2126*r+.7152*g+.0722*b
+                    border=(111,34,14) if lum>105 else (48,26,24)
+                dest[x,y]=(*border,alpha)
+                protected_count+=1
+            rr,gg,bb,aa=dest[x,y]
+            if aa>150 and min(rr,gg,bb)>190:
+                white_count+=1
 
-            # Even at anti-aliased boundaries, hot cracks are not allowed:
-            # they require a nearly 100% body/head mask.
-            strength=_ember_smoothstep(.40,.90,weight)
-            if strength < .94 and rock[0]>130:
-                rock=(min(72,rock[0]),min(42,rock[1]),min(32,rock[2]))
-            color=mix((r,g,b),rock,strength)
-            dst[x,y]=(*color,a)
-            if strength >= .94 and color[0]>185 and color[1]>45 and \
-                    color[0]>color[1]+65:
-                molten_count+=1
-
-    # The masking rule is intentionally strict: protected regions must be
-    # exactly unchanged, not even tinted by the lava's red outer halo.
-    assert all(
-        dst[x,y]==px[x,y]
-        for y in range(h) for x in range(w)
-        if px[x,y][3]>0 and
-        obsidian_body_mask_weight(*px[x,y])<.40 and
-        obsidian_head_mask_weight(x,y,face,
-            .2126*px[x,y][0]+.7152*px[x,y][1]+.0722*px[x,y][2])<.40
-    ),f"Obsidian mask spill detected in {frame_name}"
-    return out,head_count,molten_count
+    # Regression protection: no near-white painted body or unmasked lava,
+    # while the independent outer glow and fire trail remain unchanged.
+    if alpha_count and white_count>max(6,round(alpha_count*.015)):
+        raise AssertionError(
+            f"White Obsidian skin regression: {frame_name}: {white_count}/{alpha_count}")
+    if rock_count == 0:
+        raise AssertionError(f"Empty Obsidian body mask: {frame_name}")
+    for y in range(h):
+        for x in range(w):
+            r,g,b,a=dest[x,y]
+            if not a or (rock_mask[x,y]>127 and a>=45) or (
+                    obsidian_head_mask(x,y,face)>.42 and a>=45):
+                continue
+            if r>180 and g>100 and b<100:
+                raise AssertionError(
+                    f"Lava escaped solid body mask: {frame_name} ({x},{y})")
+    return result,head_count,molten_count
 
 
 def pack(frames, width=ATLAS_WIDTH):
