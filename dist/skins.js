@@ -1,4 +1,4 @@
-import {prepareApprovedClaySprites} from './approved-clay-skin.js?v=approved-clay-01';
+import {prepareApprovedClaySprites} from './approved-clay-skin.js?v=approved-clay-02';
 // Original and Shadow use original APK assets. Clay is newly modeled 2D artwork
 // rendered from the shared character bone hierarchy. No physics are modified.
 export const SKINS=Object.freeze([
