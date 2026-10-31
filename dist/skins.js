@@ -1,10 +1,10 @@
-import {prepareRiggedClaySprites} from './clay-rig-skin.js?v=clay-rig-v2';
+import {prepareApprovedClaySprites} from './approved-clay-skin.js?v=approved-clay-01';
 // Original and Shadow use original APK assets. Clay is newly modeled 2D artwork
 // rendered from the shared character bone hierarchy. No physics are modified.
 export const SKINS=Object.freeze([
  {id:'default',name:'Original Sketchman'},
  {id:'shadow',name:'Shadow'},
- {id:'clay',name:'Sculpted Clay'}
+ {id:'clay',name:'Approved Clay'}
 ]);
 export const DEFAULT_SKIN='default';
 export function getSkin(id){return SKINS.find(s=>s.id===id)||SKINS[0];}
@@ -77,4 +77,4 @@ export function prepareShadowSprites(assets,sprites){
 
 
 // Clay visuals come from the shared 18-joint Sketchman rig, not source-sprite recoloring.
-export function prepareClaySprites(assets,sprites){return prepareRiggedClaySprites(assets,sprites);}
+export function prepareClaySprites(assets,sprites){return prepareApprovedClaySprites(assets,sprites);}
