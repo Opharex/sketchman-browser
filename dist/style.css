@@ -372,3 +372,52 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
 @media(prefers-reduced-motion:reduce){
  .game-mode-carousel-card.is-selected .mode-preview-sprite{animation:none!important}
 }
+
+/* A painted Missions button on the existing weapon-selection bottom row. */
+.weapon-selection .selection-missions.menu-art-button{
+ position:absolute;left:38%;bottom:2.8%;width:24%;height:12.5%;
+ min-width:0;min-height:0;z-index:3
+}
+.weapon-selection .selection-missions.menu-art-button .menu-lettering{
+ height:70%;max-height:85%;max-width:88%
+}
+/* Independent Classic / Oops All Bombs boards. */
+.score-mode-tabs{display:flex;gap:8px;margin:0 0 8px;width:100%;flex-shrink:0}
+.score-mode-tab{flex:1;min-width:0;padding:7px 10px;border:2px solid #38698d;
+ border-radius:10px;background:#d5e8ee;color:#174268;
+ font:italic 800 clamp(11px,1.5vw,18px) 'Trebuchet MS',sans-serif;
+ cursor:pointer;box-shadow:2px 3px 0 #2040602b}
+.score-mode-tab.active{background:#187bb5;color:#fff;text-shadow:1px 1px #13436b}
+.score-mode-tab:focus-visible{outline:3px solid #d0473b;outline-offset:2px}
+.score-mode-panel{min-height:0;overflow:auto;padding:0 3px}
+.score-mode-panel .stats{margin:1.8% 0 2.8%}
+.score-mode-panel .empty{padding:4% 2%}
+.score-mode-panel .ink{display:block;margin:5px auto 12px}
+/* The 3 live objectives sit in the scrollable result area, not over navigation. */
+.screen.game-over-screen{justify-content:flex-start;align-items:stretch}
+.game-over-screen .content{flex:1;min-height:0;width:100%;overflow:auto;text-align:center;padding:0 1.5% 10px}
+.game-over-screen .content>p{margin:7px 0;font-size:.75em}
+.game-over-screen .stats{margin:2% 0}
+.game-over-screen .actions{flex-shrink:0;width:100%;margin-top:1%}
+.game-over-screen .content>.menu-art-button{width:clamp(120px,25%,220px);height:40px;min-height:0;margin:5px auto}
+.mission-recap{text-align:left;background:#f6f4e8cc;border:1px solid #7ba2b9aa;
+ border-radius:8px;padding:6px 11px;margin-top:8px}
+.mission-recap h2{text-align:center;font-size:clamp(12px,1.7vw,19px);
+ margin:2px 0 3px;color:#174775;font-style:italic}
+.mission-recap .mission{padding:5px 3px;gap:9px}
+.mission-recap .mission img{width:25px;height:25px;object-fit:contain}
+.mission-recap .mission div{font-size:clamp(10px,1.3vw,15px)}
+.mission-recap .mission small{margin:1px 0;line-height:1}
+.mission-recap .mission .reward{white-space:nowrap;font-size:clamp(9px,1.1vw,13px)}
+.mission-recap-count{font-size:clamp(10px,1.2vw,14px);text-align:center;margin:5px 0 0}
+.mission-completed .reward{color:#2c7657}
+@media(max-width:600px),(max-height:420px){
+ .score-mode-tabs{gap:4px;margin-bottom:4px}
+ .score-mode-tab{padding:5px 3px;border-width:1px;font-size:clamp(10px,2.2vw,13px)}
+ .mission-recap{padding:4px 7px}
+ .mission-recap .mission{padding:3px 2px;gap:5px}
+ .mission-recap .mission img{width:20px;height:20px}
+ .mission-recap h2{margin:0}
+ .game-over-screen .content>p{margin:4px 0}
+ .game-over-screen .actions .menu-art-button{min-height:36px;height:clamp(36px,7vh,48px)}
+}

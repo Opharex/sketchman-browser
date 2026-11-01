@@ -24,6 +24,7 @@ import {isAtlasSkin,thumbnailUrl,skinThumbnail,preloadSkinThumbnails,ensureSkinA
 import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=magnet-pull-05';
 import {COIN_BOOST_DURATION} from './coin-system.js';
 import {CLASSIC_MODE,BOMB_MODE,GAME_MODES,getGameMode,modeScoreRecord} from './game-modes.js?v=bomb-boss-bounty-01';
+import {missionDisplayRows,scoreboardForMode} from './progress-ui.js';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const BOSS_TEST=new URLSearchParams(location.search).get('bossTest')==='1';
 let bossRig=null;
@@ -112,7 +113,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'PREBUILT MENU PORTRAITS';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'MISSIONS + MODE SCORES';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -260,7 +261,7 @@ function renderOriginalOptions(force=false){
 }
 function prepareMenus(){
  prepareOptionsPanels();getMainMenuPaint();for(const mode of GAME_MODES)gameModePreview(mode);versionSplashImage=menuLettering(VERSION_SPLASH);
- for(const label of ['CLASSIC','OOPS ALL BOMBS','Choose a Mode','Select Mode','More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow',...SKINS.map(s=>s.name)])menuLettering(label);
+ for(const label of ['CLASSIC','OOPS ALL BOMBS','Choose a Mode','Select Mode','More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Missions','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow',...SKINS.map(s=>s.name)])menuLettering(label);
  for(const code of [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c=>'Key'+c).concat([...'0123456789'].flatMap(c=>['Digit'+c,'Numpad'+c]),['Space','Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Backspace',...Object.values(save.settings.controls)]))menuLettering(keyLabel(code));
  // These source layers are now retired; the renderer only keeps finished artwork.
  for(const name of ['IMM_MainMenu_01','IMM_Options_01','IMM_Options_MusicON_01','IMM_Options_SoundON_01']){const source=assets[name];source.width=source.height=0;delete assets[name];}
@@ -709,7 +710,11 @@ function playSelect(initial=save.selected){
  const prev=make('Previous weapon',()=>browse(-1),'selection-prev');prev.innerHTML='<span aria-hidden="true">‹</span>';
  const next=make('Next weapon',()=>browse(1),'selection-next');next.innerHTML='<span aria-hidden="true">›</span>';
  const action=make('Select Pistol',()=>{if(!selectionMotion.settled)return;const id=SELECTION_ORDER[selectionIndex],owned=save.unlocked.includes(id);if(owned){save.selected=id;persist();sfx('shoot',id);startRun();}else{sfx('click');if(buyWeapon(save,id)){persist();update();}else toast(`You need ${fmt(WEAPONS[id].cost-save.coins)} more coins.`);}},'selection-action');
- make('Back',()=>{sfx('click');gameModesScreen();},'selection-back');make('Shop',()=>{sfx('click');shop('select');},'selection-shop');
+ make('Back',()=>{sfx('click');gameModesScreen();},'selection-back');
+ make('Shop',()=>{sfx('click');shop('select');},'selection-shop');
+ // Reuse the game's painted buttons without interfering with weapon browsing.
+ const missionsButton=artButton('Missions',missionScreen,'selection-missions');
+ panel.append(missionsButton);
  panel.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','a','A','d','D'].includes(e.key)){e.preventDefault();if(e.repeat)return;browse(['ArrowLeft','a','A'].includes(e.key)?-1:1);}});
  let drag=null;panel.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;const width=panel.getBoundingClientRect().width;drag={x:e.clientX,y:e.clientY,position:selectionMotion.position,lastX:e.clientX,lastAt:e.timeStamp,velocity:0,width};selectionMotion.drag(selectionMotion.position);panel.setPointerCapture(e.pointerId);});
  panel.addEventListener('pointermove',e=>{if(!drag)return;const scale=960/drag.width,elapsed=Math.max(1,e.timeStamp-drag.lastAt);drag.velocity=-(e.clientX-drag.lastX)*scale/(elapsed*.06);drag.lastX=e.clientX;drag.lastAt=e.timeStamp;selectionMotion.drag(drag.position-(e.clientX-drag.x)*scale/450);});
@@ -771,7 +776,34 @@ function finishRun(abandon=false){if(!world||ended)return;ended=true;if(BOSS_TES
   board.scores=board.scores.slice(0,10);save.modeRecords[world.mode.id]=board;
  }
  persist();if(!abandon)gameOver();}
-function gameOver(){state='over';resetInput();const {s,c}=screen('Game Over',{close:menu,balance:true});s.classList.add('center');c.style.flex='initial';c.innerHTML=`<p>${Math.floor(world.distance)>=(world.mode.id===CLASSIC_MODE?save.best:save.modeRecords?.[world.mode.id]?.best??0)?'A new line in the record book.':'One more run. One more page.'}</p><div class="stats"><div><strong>${fmt(world.distance)}m</strong><span>DISTANCE</span></div><div><strong>${fmt(world.coins)}</strong><span>COINS</span></div><div><strong>${world.kills}</strong><span>ENEMIES</span></div></div><p>Personal best (${world.mode.name}): <b>${fmt(world.mode.id===CLASSIC_MODE?save.best:save.modeRecords?.[world.mode.id]?.best??0)}m</b></p>`;const a=document.createElement('div');a.className='actions';a.append(artButton('Menu',menu),artButton('Weapons',playSelect),artButton('Retry',()=>startRun()));s.append(a);const b=artButton('Share score',async()=>{const message=`I ran ${fmt(world.distance)}m in Sketchman!`;try{if(navigator.share)await navigator.share({title:'Sketchman',text:message,url:location.href});else{await navigator.clipboard.writeText(`${message} ${location.href}`);toast('Score and link copied.');}}catch{toast(message);}});c.append(b);}
+ function gameOver(){
+  state='over';resetInput();const {s,c}=screen('Game Over',{close:menu,balance:true});
+  s.classList.add('center','game-over-screen');
+  const best=world.mode.id===CLASSIC_MODE?save.best:save.modeRecords?.[world.mode.id]?.best??0;
+  c.innerHTML=`<p>${Math.floor(world.distance)>=best?'A new line in the record book.':'One more run. One more page.'}</p>
+   <div class="stats"><div><strong>${fmt(world.distance)}m</strong><span>DISTANCE</span></div>
+   <div><strong>${fmt(world.coins)}</strong><span>COINS</span></div>
+   <div><strong>${world.kills}</strong><span>ENEMIES</span></div></div>
+   <p>Personal best (${world.mode.name}): <b>${fmt(best)}m</b></p>`;
+  const recap=document.createElement('section');recap.className='mission-recap';
+  const heading=document.createElement('h2');heading.textContent='MISSION PROGRESS';recap.append(heading);
+  const rows=missionDisplayRows(missions,save);
+  if(rows.length)for(const row of rows)recap.append(missionEntry(row,true));
+  else{const msg=document.createElement('p');msg.className='note';msg.textContent='All missions completed!';recap.append(msg);}
+  const tally=document.createElement('p');tally.className='mission-recap-count';
+  tally.textContent=pendingMission.length
+   ?`${pendingMission.length} completed this run · ${save.completed.length}/${missions.length} overall`
+   :`${save.completed.length}/${missions.length} missions completed`;
+  recap.append(tally);c.append(recap);
+  const share=artButton('Share score',async()=>{
+   const message=`I ran ${fmt(world.distance)}m in Sketchman!`;
+   try{if(navigator.share)await navigator.share({title:'Sketchman',text:message,url:location.href});
+    else{await navigator.clipboard.writeText(`${message} ${location.href}`);toast('Score and link copied.');}}
+   catch{toast(message);}
+  });c.append(share);
+  const a=document.createElement('div');a.className='actions';
+  a.append(artButton('Menu',menu),artButton('Weapons',playSelect),artButton('Retry',()=>startRun()));s.append(a);
+ }
 function pause(){if(state!=='playing')return;state='paused';resetInput();muteForPause=true;updateMusic();const overlay=document.createElement('div');overlay.className='paused';ui.append(overlay);const panel=document.createElement('section');panel.className='screen center sketch-pause';panel.innerHTML='<h1>PAUSED</h1>';const a=document.createElement('div');a.className='actions';a.append(artButton('Resume',resume),artButton('Shop',()=>shop('paused')),artButton('Controls',()=>controlsScreen(()=>{state='playing';attachHud();pause();})),artButton('Restart',()=>{finishRun(true);startRun();}),artButton('Menu',()=>{finishRun(true);menu();}));panel.append(a);overlay.append(panel);}
 function resume(){if(!world||world.dead)return;state='playing';resetInput();attachHud();muteForPause=false;updateMusic();last=performance.now();}
 const ITEMS=[
@@ -798,8 +830,81 @@ function shop(from=returnState){
  });
 }
 function equip(id){const group=id.startsWith('head')?'head':id.toLowerCase().includes('armor')?'armor':id.toLowerCase().includes('power')?'power':null;if(group)save.equipped=save.equipped.filter(x=>!(group==='head'?x.startsWith('head'):group==='armor'?x.toLowerCase().includes('armor'):x.toLowerCase().includes('power')));save.equipped.push(id);}
-function missionScreen(){state='missions';const {s,c}=screen('Your missions',{close:playSelect,balance:true});advanceMissions();for(const m of activeMissions()){const p=Math.min(m.target,save.missionProgress[m.id]||0);const row=document.createElement('div');row.className='mission';row.innerHTML=`<img src="${ICON(m.group===0?'CON_Coin_01':m.group===1?'CHR_Run_01':'STR_ICO_WeaponA_01')}" alt=""><div><b>${m.text}</b><small>${p} / ${m.target}${m.cumulative?' · Across runs':' · In one run'}</small><progress value="${p}" max="${m.target}"></progress></div><span class="reward">+${fmt(m.reward)} ◉</span>`;c.append(row);}const note=document.createElement('p');note.className='note';note.textContent=`${save.completed.length} / 120 missions completed. Three active missions — collecting, distance, and combat. Complete each to reveal the next.`;c.append(note);const a=document.createElement('div');a.className='actions';a.append(button('Let’s run →',()=>startRun(),'ink primary'));s.append(a);}
-function scores(){state='scores';const {c}=screen('Personal bests');if(!save.scores.length){c.innerHTML='<div class="empty">Your notebook is still blank.<br><br>Go for a run and set your first record.</div>';c.append(button('Play →',playSelect,'ink primary'));return;}c.innerHTML=`<div class="stats"><div><strong>${fmt(save.best)}m</strong><span>BEST DISTANCE</span></div><div><strong>${save.runs}</strong><span>RUNS</span></div><div><strong>${save.completed.length}</strong><span>MISSIONS</span></div></div><table class="scores"><thead><tr><th>#</th><th>Distance</th><th>Coins</th><th>Weapon</th><th>Date</th></tr></thead><tbody>${save.scores.map((s,i)=>`<tr><td>${i+1}</td><td><b>${fmt(s.distance)}m</b></td><td>${fmt(s.coins)}</td><td>${WEAPONS[s.weapon]?.name||'Pistol'}</td><td>${new Date(s.date).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</td></tr>`).join('')}</tbody></table><p class="note">Scores and purchases are saved in this browser, on this device.</p>`;}
+ // Shared objective display for Missions and post-run results.
+ function missionEntry(row,compact=false){
+  const item=document.createElement('div');
+  item.className='mission'+(compact?' mission-compact':'')+(row.completed?' mission-completed':'');
+  const icon=document.createElement('img');
+  icon.src=ICON(row.group===0?'CON_Coin_01':row.group===1?'CHR_Run_01':'STR_ICO_WeaponA_01');icon.alt='';
+  const detail=document.createElement('div'),title=document.createElement('b'),count=document.createElement('small');
+  title.textContent=row.text;
+  count.textContent=row.completed?'Complete!':`${fmt(row.progress)} / ${fmt(row.target)}${compact?'':row.cumulative?' · Across runs':' · In one run'}`;
+  const progress=document.createElement('progress');progress.value=row.progress;progress.max=row.target;
+  progress.setAttribute('aria-label',row.text+' progress');
+  detail.append(title,count,progress);
+  const reward=document.createElement('span');reward.className='reward';
+  reward.textContent=row.completed?'✓ +'+fmt(row.reward):'+'+fmt(row.reward)+' ◉';
+  item.append(icon,detail,reward);return item;
+ }
+ function missionScreen(){
+  state='missions';advanceMissions();persist();
+  const backToWeapons=()=>playSelect(SELECTION_ORDER[selectionIndex]);
+  const {s,c}=screen('Your missions',{close:backToWeapons,balance:true});
+  const rows=missionDisplayRows(missions,save);
+  if(rows.length)for(const row of rows)c.append(missionEntry(row));
+  else{const end=document.createElement('div');end.className='empty';end.textContent='All missions completed!';c.append(end);}
+  const note=document.createElement('p');note.className='note';
+  note.textContent=`${save.completed.length} / ${missions.length} missions completed. Completing each objective unlocks the next in its category.`;
+  c.append(note);const actions=document.createElement('div');actions.className='actions';
+  actions.append(button('Back to weapons',backToWeapons,'ink primary'));s.append(actions);
+ }
+ function scores(initialMode=CLASSIC_MODE){
+  state='scores';const {c}=screen('Personal bests');
+  const tabs=document.createElement('div');tabs.className='score-mode-tabs';
+  tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Game mode records');
+  const tabButtons=new Map(),panel=document.createElement('div');
+  panel.className='score-mode-panel';panel.id='score-mode-panel';panel.setAttribute('role','tabpanel');
+  for(const mode of GAME_MODES){
+   const tab=button(mode.name,()=>showBoard(mode.id),'score-mode-tab');
+   tab.setAttribute('role','tab');tab.setAttribute('aria-controls',panel.id);
+   tab.dataset.mode=mode.id;tabs.append(tab);tabButtons.set(mode.id,tab);
+  }c.append(tabs,panel);
+  function showBoard(modeId){
+   const board=scoreboardForMode(save,modeId),records=board.scores;
+   for(const [id,tab]of tabButtons){const active=id===board.mode.id;
+    tab.classList.toggle('active',active);tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;}
+   panel.setAttribute('aria-label',board.mode.name+' records');
+   panel.replaceChildren();
+   const stats=document.createElement('div');stats.className='stats';
+   stats.innerHTML=`<div><strong>${fmt(board.best)}m</strong><span>BEST DISTANCE</span></div>
+    <div><strong>${records.length}</strong><span>TOP RECORDS</span></div>
+    <div><strong>${save.completed.length}</strong><span>MISSIONS COMPLETED</span></div>`;
+   panel.append(stats);
+   if(!records.length){
+    const empty=document.createElement('div');empty.className='empty';
+    empty.textContent=`No ${board.mode.name} runs recorded yet.`;
+    panel.append(empty,button('Choose a mode →',gameModesScreen,'ink primary'));
+   }else{
+    const table=document.createElement('table');table.className='scores';
+    table.innerHTML=`<thead><tr><th>#</th><th>Distance</th><th>Coins</th><th>Weapon</th><th>Date</th></tr></thead>
+    <tbody>${records.map((s,i)=>`<tr><td>${i+1}</td><td><b>${fmt(s.distance)}m</b></td>
+     <td>${fmt(s.coins)}</td><td>${WEAPONS[s.weapon]?.name||'Pistol'}</td>
+     <td>${new Date(s.date).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</td></tr>`).join('')}</tbody>`;
+    panel.append(table);
+   }
+   const note=document.createElement('p');note.className='note';
+   note.textContent='Each mode has its own leaderboard. Records are saved on this device.';
+   panel.append(note);
+  }
+  tabs.addEventListener('keydown',e=>{
+   if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
+   e.preventDefault();const index=GAME_MODES.findIndex(m=>tabButtons.get(m.id)===document.activeElement);
+   const next=e.key==='Home'?0:e.key==='End'?GAME_MODES.length-1:
+    (index+(e.key==='ArrowRight'?1:-1)+GAME_MODES.length)%GAME_MODES.length;
+   const target=GAME_MODES[next];showBoard(target.id);tabButtons.get(target.id).focus();
+  });
+  showBoard(initialMode);
+ }
 function letterImage(label){const source=menuLettering(label),c=document.createElement('canvas');c.className='menu-lettering';c.width=source.width;c.height=source.height;c.getContext('2d').drawImage(source,0,0);c.setAttribute('aria-hidden','true');return c;}
 function artButton(label,fn,cls=''){const b=button('',fn,'menu-art-button '+cls);b.setAttribute('aria-label',label);b.append(letterImage(label));return b;}
 function updateControlHint(){const c=save.settings.controls;$('#hint').textContent=`${keyLabel(c.jump)} jump · ${keyLabel(c.fire)} fire · ${keyLabel(c.pause)} / Esc pause`;canvas.setAttribute('aria-label',`Sketchman game, use ${keyLabel(c.jump)} to jump and ${keyLabel(c.fire)} to fire`);}
