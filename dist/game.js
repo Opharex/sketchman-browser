@@ -112,7 +112,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'MENU PORTRAIT SKINS';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'MENU PORTRAIT FIX 2';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);

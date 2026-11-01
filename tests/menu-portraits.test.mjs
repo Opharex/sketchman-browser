@@ -63,9 +63,14 @@ test('new menu portraits project uploaded material onto original gun-holding pos
  for(let i=0;i<ref.length;i+=4)ref.set([225,23,37,255],i);
  const painted=paintTitlePosePixels(original,width,height,{data:ref,width:refWidth,height:refHeight});
  const rgba=(px,py)=>[...painted.slice(((py-y)*width+px-x)*4,((py-y)*width+px-x)*4+4)];
+ assert.equal(titleFigureZone(405,181),'head');
  assert.equal(titleFigureZone(405,145),'head');
- assert.equal(titleFigureZone(400,245),'body');
- assert.ok(rgba(405,145)[0]>200&&rgba(405,145)[1]<40,'reference head texture is used');
+ assert.equal(titleFigureZone(403,224),null,'face and body masks must not overlap lower edge');
+ assert.equal(titleFigureZone(400,245),'torso');
+ assert.equal(titleFigureZone(357,280),'leftArm');
+ assert.equal(titleFigureZone(434,248),'torso');
+ assert.ok(rgba(405,181)[0]>200&&rgba(405,181)[1]<40,'reference head center is fully textured');
+ assert.ok(rgba(405,145)[0]>200&&rgba(405,145)[1]<40,'upper head stays textured');
  assert.ok(rgba(400,245)[0]>200&&rgba(400,245)[2]<50,'reference body texture is used');
  assert.deepEqual(rgba(570,110),[180,205,238,255],'gun and title surroundings are untouched');
  assert.deepEqual(rgba(460,190),[180,205,238,255],'forward pistol highlight cannot be repainted');
@@ -80,4 +85,21 @@ test('menu pre-bakes every reference into the fixed title pose rather than inser
  assert.match(src,/const portrait=mainMenuPaint\.poseVariants\.get\(id\)/);
  assert.doesNotMatch(src,/paint\.context\.drawImage\(art,slot\.x/);
  assert.doesNotMatch(src,/eraseLegacyTitleFigure\(oldHero\.data/);
+});
+
+test('the correct head covers its entire interior, with pistol and surrounding ink protected',()=>{
+ const {x,y,width,height}=MENU_POSE_RECT;
+ const base=new Uint8ClampedArray(width*height*4);
+ for(let i=0;i<base.length;i+=4)base.set([190,215,242,255],i);
+ const rw=230,rh=260,material=new Uint8ClampedArray(rw*rh*4);
+ for(let i=0;i<material.length;i+=4)material.set([23,210,61,255],i);
+ const painted=paintTitlePosePixels(base,width,height,{data:material,width:rw,height:rh},x,y);
+ const color=(px,py)=>[...painted.slice(((py-y)*width+px-x)*4,((py-y)*width+px-x)*4+4)];
+ for(const pt of [[403,181],[403,155],[403,205],[380,183],[425,183],[400,245],[400,280],[356,281]]){
+  const [r,g,b]=color(...pt);
+  assert.ok(g>r*4&&g>b*2,'reference material must cover '+pt);
+ }
+ for(const pt of [[470,175],[485,215],[555,155],[560,230],[335,190]]){
+  assert.deepEqual(color(...pt),[190,215,242,255],'gun and lettering keep original pixels '+pt);
+ }
 });
