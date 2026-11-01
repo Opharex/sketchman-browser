@@ -52,7 +52,7 @@ test('title menu randomization does not change gameplay skins, modes or save dat
  assert.match(src,/mode:isTutorial\?CLASSIC_MODE:activeGameMode/);
  assert.match(src,/const SKIN_KEY='sketchman-browser-skin-v1'/);
  assert.match(src,/function equipSkin\(id\)/);
- assert.match(src,/MENU PORTRAIT SKINS/);
+ assert.match(src,/MENU PORTRAIT FIX 2/);
 });
 
 test('new menu portraits project uploaded material onto original gun-holding pose',()=>{
