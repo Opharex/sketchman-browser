@@ -40,3 +40,8 @@ test('The indicator remains visible after the intro and never steals touch input
  assert.match(css,/#ui>\.run-powerups/);
  assert.match(css,/pointer-events:none!important/);
 });
+
+test('Extra life USED state stays visible after pause and resume',()=>{
+ assert.match(game,/world\?\.reviveUsed\?'USED':'READY'/);
+ assert.match(game,/badge\.id==='life'&&world\?\.reviveUsed/);
+});

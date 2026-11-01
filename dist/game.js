@@ -743,7 +743,8 @@ function mountRunPowerupHud(){
   const remaining=document.createElement('strong');remaining.className='run-powerup-left';
   remaining.textContent=runPowerupStockLabel(badge);
   const status=document.createElement('span');status.className='run-powerup-state';
-  status.textContent=badge.id==='life'?'READY':'ON';
+  status.textContent=badge.id==='life'?(world?.reviveUsed?'USED':'READY'):'ON';
+  if(badge.id==='life'&&world?.reviveUsed)chip.classList.add('run-powerup-used');
   chip.title=badge.name+' · '+(badge.permanent?'Permanent':remaining.textContent+' after this run started');
   chip.setAttribute('aria-label',badge.name+' active, '+(badge.permanent?'permanent':remaining.textContent));
   chip.append(img,name,remaining,status);panel.append(chip);
