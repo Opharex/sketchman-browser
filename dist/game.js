@@ -109,7 +109,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'CRIMSON COINS UPDATE';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'FIRE RED COINS';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -275,7 +275,7 @@ function prepareCoinArtwork(){
    const canvas=document.createElement('canvas');canvas.width=source.width;canvas.height=source.height;
    const paint=canvas.getContext('2d');
    if(tier==='red'){
-    // Crimson (#DC143C): map the original coin's shading and linework onto
+    // Fire Red (#FF1E00): map the original coin's shading and linework onto
     // a fixed red hue. Preserve animation frames, outlines and transparency.
     paint.drawImage(source,0,0);
     const pixels=paint.getImageData(0,0,canvas.width,canvas.height),rgba=pixels.data;
@@ -284,9 +284,9 @@ function prepareCoinArtwork(){
      const brightness=Math.max(rgba[i],rgba[i+1],rgba[i+2])/255;
      const shade=brightness<.2?brightness*.7:.08+brightness*.92;
      const glint=Math.max(0,(brightness-.85)/.15)*.16;
-     rgba[i]=Math.round(220*shade+35*glint);
-     rgba[i+1]=Math.round(20*shade+235*glint);
-     rgba[i+2]=Math.round(60*shade+195*glint);
+     rgba[i]=Math.min(255,Math.round(255*shade+20*glint));
+     rgba[i+1]=Math.round(30*shade+160*glint);
+     rgba[i+2]=Math.round(28*glint);
     }
     paint.putImageData(pixels,0,0);
    }else{
