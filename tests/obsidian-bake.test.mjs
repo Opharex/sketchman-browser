@@ -15,7 +15,7 @@ test('Obsidian body and lava use one pre-baked sprite, not a runtime shadow over
  assert.match(builder,/result=bake_obsidian_emission\(result,source,xoff,yoff,frame_name\)/);
  assert.doesNotMatch(game,/shadowBlur|shadowColor/);
  assert.match(game,/if\(atlas\)target\.drawImage\(im,\.\.\.atlas\.box,p\.x,p\.y,p\.w,p\.h\)/);
- assert.match(game,/OBSIDIAN MATERIAL OVERHAUL 03/);
+ assert.match(game,/GAME MODES \+ OOPS ALL BOMBS/);
 });
 test('Fire trail stays a separate cosmetic effect restricted to Obsidian',()=>{
  assert.match(game,/if\(selectedSkin==='obsidian_ember'\)emberTrail\.draw\(ctx,w\)/);
@@ -27,7 +27,7 @@ test('Only Obsidian texture and thumbnail URLs are newly versioned',()=>{
  assert.match(atlas,/id==='crimson_bolt'\?'crimson-refine-01'/);
  assert.match(atlas,/id==='frost_runner'\?'frost-refine-01'/);
  assert.match(atlas,/id==='sunset_blaze'\?'sunset-refine-01'/);
- assert.match(html,/game\.js\?v=obsidian-material-03/);
+ assert.match(html,/game\.js\?v=game-modes-01/);
 });
 
 test('Obsidian plates follow actual pose-local directions and verified Run bind bones',()=>{
