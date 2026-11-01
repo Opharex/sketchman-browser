@@ -200,9 +200,32 @@ test('Actual UI Play flow has mode selector and Retry keeps mode while Classic r
  const game=fs.readFileSync(new URL('../dist/game.js',import.meta.url),'utf8');
  assert.match(game,/\['Play',gameModesScreen\]/);
  assert.match(game,/function gameModesScreen\(\)/);
- assert.match(game,/game-mode-grid/);
- assert.match(game,/activeGameMode=mode.id;playSelect\(\)/);
+ assert.match(game,/game-mode-carousel-track/);
+ assert.match(game,/new CarouselMotion\(m.index,GAME_MODES.length\)/);
+ assert.match(game,/GAME_MODES.map\(\(mode,i\)=>modeCard\(mode,i\)\)/);
+ assert.match(game,/activeGameMode=mode.id;\s*playSelect\(\)/);
  assert.match(game,/mode:isTutorial\?CLASSIC_MODE:activeGameMode/);
  assert.match(game,/artButton\('Retry',\(\)=>startRun\(\)\)/);
  assert.match(game,/if\(world.mode.id===CLASSIC_MODE\)/);
+});
+
+test('Mode carousel is card-based, retains gameplay transition, and uses actual air-mine artwork',()=>{
+ const game=fs.readFileSync(new URL('../dist/game.js',import.meta.url),'utf8');
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ assert.match(game,/game-mode-carousel-card/);
+ assert.match(game,/game-mode-carousel-prev/);
+ assert.match(game,/game-mode-carousel-next/);
+ assert.match(game,/game-mode-carousel-confirm/);
+ assert.match(game,/track\.addEventListener\('pointerdown'/);
+ assert.match(game,/track\.addEventListener\('pointermove'/);
+ assert.match(game,/track\.addEventListener\('pointerup'/);
+ assert.match(game,/modeCarousel\.motion\.advance\(dt\)/);
+ assert.match(game,/\['ArrowLeft','ArrowRight','KeyA','KeyD'\]/);
+ assert.match(game,/k==='Enter'.*confirmGameMode/);
+ assert.match(game,/activeGameMode=mode.id;\s*playSelect\(\)/);
+ assert.match(css,/\.game-mode-carousel-card\.is-selected/);
+ assert.match(css,/prefers-reduced-motion:reduce/);
+ assert.equal(getGameMode(BOMB_MODE).previewSprites[0],'HAZ_AirMine_01');
+ assert.ok(getGameMode(CLASSIC_MODE).previewSprites.includes('CHR_RunNGun_01'));
+ assert.equal(getGameMode(BOMB_MODE).bossReward,500);
 });

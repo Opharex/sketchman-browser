@@ -41,6 +41,7 @@ let state='loading',world=null,assets={},sprites={},missions=[],normalData={patt
 let captureControl=null,controlsReturn=menu,uiImages=new Map();
 const emberTrail=new EmberTrail();
 let selectionIndex=0,selectionMotion=new CarouselMotion();
+const modeCarousel={index:0,motion:null,cards:[],track:null,prev:null,next:null,confirm:null,status:null};
 // A mode selection belongs to the run (and survives retry, shop, pause).
 let activeGameMode=CLASSIC_MODE;
 let pointerJump=new Set(),pointerFire=new Set(),keys=new Set();
@@ -110,7 +111,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'ACCURATE MENU SKINS';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'GAME MODE CAROUSEL';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -253,8 +254,8 @@ function renderOriginalOptions(force=false){
  ctx.drawImage(optionsPanels[state],220,64);notebook();
 }
 function prepareMenus(){
- prepareOptionsPanels();getMainMenuPaint();versionSplashImage=menuLettering(VERSION_SPLASH);
- for(const label of ['CLASSIC','OOPS ALL BOMBS','Choose a Mode','More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow',...SKINS.map(s=>s.name)])menuLettering(label);
+ prepareOptionsPanels();getMainMenuPaint();for(const mode of GAME_MODES)gameModePreview(mode);versionSplashImage=menuLettering(VERSION_SPLASH);
+ for(const label of ['CLASSIC','OOPS ALL BOMBS','Choose a Mode','Select Mode','More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow',...SKINS.map(s=>s.name)])menuLettering(label);
  for(const code of [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c=>'Key'+c).concat([...'0123456789'].flatMap(c=>['Digit'+c,'Numpad'+c]),['Space','Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Backspace',...Object.values(save.settings.controls)]))menuLettering(keyLabel(code));
  // These source layers are now retired; the renderer only keeps finished artwork.
  for(const name of ['IMM_MainMenu_01','IMM_Options_01','IMM_Options_MusicON_01','IMM_Options_SoundON_01']){const source=assets[name];source.width=source.height=0;delete assets[name];}
@@ -416,48 +417,157 @@ const MAIN_MENU_BUTTONS=[
  ['Tutorial',()=>startRun(true)],['Options',settings],['Skins',skinsScreen],['Controls',()=>controlsScreen(menu)]
 ];
 
+const modePreviewArt=new Map();
+// Original extracted sprites are decoded during boot; illustrated card previews
+// are baked only once and reused on every visit and animation frame.
 function gameModePreview(mode){
- const c=document.createElement('canvas');
- c.className='game-mode-art';c.width=192;c.height=110;
- const painter=c.getContext('2d');
- // Assets come from the actual extracted mobile APK sprite atlases. They
- // are already preloaded at boot, so no asynchronous placeholder flashes.
- const sprites=mode.previewSprites;
- const images=sprites.map(name=>assets[name]).filter(Boolean);
- for(let i=0;i<images.length;i++){
-  const img=images[i],limitW=images.length===1?126:82,limitH=92;
-  const scale=Math.min(limitW/img.width,limitH/img.height,1.5);
-  const w=Math.round(img.width*scale),h=Math.round(img.height*scale);
-  const x=images.length===1?(c.width-w)/2:(i===0?49-w/2:143-w/2);
-  const y=(c.height-h)/2+3;
-  painter.drawImage(img,x,y,w,h);
+ if(modePreviewArt.has(mode.id))return modePreviewArt.get(mode.id);
+ const c=document.createElement('canvas');c.className='game-mode-carousel-art';c.width=340;c.height=175;
+ const p=c.getContext('2d');
+ p.fillStyle='#dceaf029';p.fillRect(7,18,326,146);
+ p.strokeStyle='#5688a34a';p.lineWidth=2;
+ for(let line=0;line<4;line++){p.beginPath();p.moveTo(12,52+line*33);p.lineTo(328,52+line*33);p.stroke();}
+ const names=mode.previewSprites||[];
+ const bombs=mode.id===BOMB_MODE;
+ const art=bombs?[names[0],names[0],names[0]]:names;
+ art.forEach((name,i)=>{
+  const image=assets[name];if(!image)return;
+  const n=art.length,points=bombs?[[82,105,.71],[168,82,1.06],[262,113,.83]]:n===3?[[88,101,1.15],[237,133,.83],[291,128,.82]]:[[105,105,1],[240,110,1]];
+  const [cx,cy,mult]=points[Math.min(i,points.length-1)];
+  const size=bombs?103:(i===0?142:90);
+  const factor=Math.min(size/image.width,size/image.height,1.55)*mult;
+  const width=image.width*factor,height=image.height*factor;
+  p.save();p.globalAlpha=bombs&&i!==1?.76:1;
+  p.drawImage(image,cx-width/2,cy-height/2,width,height);p.restore();
+ });
+ modePreviewArt.set(mode.id,c);return c;
+}
+function modeCard(mode,i){
+ const card=document.createElement('article');
+ card.className='game-mode-carousel-card';
+ card.dataset.index=String(i);
+ card.setAttribute('role','option');
+ card.setAttribute('aria-label',mode.name+', '+mode.description);
+ const number=document.createElement('span');number.className='mode-card-number';number.textContent=String(i+1).padStart(2,'0')+' / '+String(GAME_MODES.length).padStart(2,'0');
+ const title=document.createElement('strong');title.className='mode-card-name';title.textContent=mode.name;
+ const preview=gameModePreview(mode);
+ const art=document.createElement('div');art.className='mode-card-picture';art.append(preview);
+ if(mode.id===BOMB_MODE)art.classList.add('mode-card-floating');
+ const desc=document.createElement('p');desc.className='mode-card-description';desc.textContent=mode.description;
+ const reward=document.createElement('div');reward.className='mode-card-reward';
+ reward.textContent=mode.id===BOMB_MODE?'BOSS DEFEATED: +'+fmt(mode.bossReward)+' COINS':'BOSS REWARD: +'+fmt(mode.bossReward)+' COINS';
+ card.append(number,title,art,desc,reward);
+ return card;
+}
+function updateModeCarousel(){
+ if(state!=='game-modes'||!modeCarousel.motion||!modeCarousel.track)return;
+ const m=modeCarousel,motion=m.motion;
+ if(matchMedia('(prefers-reduced-motion: reduce)').matches){motion.position=motion.target;motion.dragging=false;}
+ const width=m.track.getBoundingClientRect().width;
+ for(let i=0;i<m.cards.length;i++){
+  const card=m.cards[i],delta=i-motion.position,distance=Math.abs(delta);
+  const scale=Math.max(.63,1-.37*Math.min(1,distance));
+  const opacity=Math.max(.34,1-.47*Math.min(1,distance));
+  const offset=delta*width*.37;
+  card.style.transform=`translate(-50%,-50%) translate3d(${offset}px,${Math.min(distance,1)*13}px,0) scale(${scale})`;
+  card.style.opacity=String(opacity);
+  card.style.zIndex=String(100-Math.round(distance*12));
+  card.classList.toggle('is-selected',i===m.index);
+  card.setAttribute('aria-selected',String(i===m.index));
+  card.style.pointerEvents=Math.abs(delta)<1.35?'auto':'none';
  }
- return c;
+ m.prev.disabled=m.index===0;
+ m.next.disabled=m.index===GAME_MODES.length-1;
+ m.confirm.disabled=!motion.settled;
+}
+function browseMode(delta){
+ if(state!=='game-modes')return;
+ const next=Math.max(0,Math.min(GAME_MODES.length-1,modeCarousel.index+delta));
+ if(next===modeCarousel.index)return;
+ modeCarousel.index=next;modeCarousel.motion.go(next);
+ modeCarousel.status.textContent=GAME_MODES[next].name+' selected. '+(next+1)+' of '+GAME_MODES.length;
+ updateModeCarousel();
+}
+function confirmGameMode(){
+ if(state!=='game-modes'||!modeCarousel.motion?.settled)return;
+ const mode=GAME_MODES[modeCarousel.index];
+ if(!mode)return;
+ activeGameMode=mode.id;
+ playSelect();
 }
 function gameModesScreen(){
- state='game-modes';resetInput();
- const {s,c}=screen('Choose a Mode',{close:menu});
- s.classList.add('game-mode-screen');
- const hint=document.createElement('p');
- hint.className='game-mode-hint';
- hint.textContent='Choose your challenge, then select your weapon.';
- c.append(hint);
- const grid=document.createElement('div');grid.className='game-mode-grid';c.append(grid);
- for(const mode of GAME_MODES){
-  const card=document.createElement('button');
-  card.type='button';card.className='game-mode-card';
-  card.setAttribute('aria-label','Play '+mode.name);
-  if(mode.id===activeGameMode)card.classList.add('is-selected');
-  card.append(gameModePreview(mode));
-  const copy=document.createElement('div');copy.className='game-mode-copy';
-  const title=document.createElement('strong');title.className='game-mode-name';title.textContent=mode.name;
-  const subtitle=document.createElement('span');subtitle.className='game-mode-description';subtitle.textContent=mode.description;
-  const tag=document.createElement('span');tag.className='game-mode-cta';tag.textContent='SELECT MODE';
-  copy.append(title,subtitle,tag);card.append(copy);
-  card.onclick=()=>{sfx('click');activeGameMode=mode.id;playSelect();};
-  grid.append(card);
- }
- grid.querySelector('.game-mode-card.is-selected')?.focus({preventScroll:true});
+ state='game-modes';resetInput();paper();notebook();ui.innerHTML='';
+ const m=modeCarousel;
+ const selected=GAME_MODES.findIndex(mode=>mode.id===activeGameMode);
+ m.index=Math.max(0,selected);m.motion=new CarouselMotion(m.index,GAME_MODES.length);
+ const panel=document.createElement('section');panel.className='game-mode-carousel';panel.tabIndex=0;
+ panel.setAttribute('aria-label','Choose a game mode');
+ const heading=document.createElement('h1');heading.className='game-mode-carousel-heading';
+ heading.append(letterImage('Choose a Mode'));panel.append(heading);
+ const hint=document.createElement('p');hint.className='game-mode-carousel-hint';
+ hint.textContent='SWIPE OR USE ARROWS TO BROWSE';panel.append(hint);
+ const track=document.createElement('div');track.className='game-mode-carousel-track';
+ track.setAttribute('role','listbox');track.setAttribute('aria-label','Game modes');m.track=track;
+ m.cards=GAME_MODES.map((mode,i)=>modeCard(mode,i));
+ for(const card of m.cards)track.append(card);
+ panel.append(track);
+ const make=(label,fn,cls)=>{
+  const button=document.createElement('button');button.type='button';button.className=cls;
+  button.setAttribute('aria-label',label);button.onclick=()=>{sfx('click');fn();};panel.append(button);return button;
+ };
+ m.prev=make('Previous mode',()=>browseMode(-1),'game-mode-carousel-prev');
+ m.prev.innerHTML='<span aria-hidden="true">‹</span>';
+ m.next=make('Next mode',()=>browseMode(1),'game-mode-carousel-next');
+ m.next.innerHTML='<span aria-hidden="true">›</span>';
+ m.confirm=make('Select Mode',confirmGameMode,'game-mode-carousel-confirm menu-art-button');
+ m.confirm.append(letterImage('Select Mode'));
+ const back=make('Back to main menu',menu,'game-mode-carousel-back');
+ back.innerHTML='<img src="shop-art/IMM_BackButton_01.png" alt="">';
+ m.status=document.createElement('span');m.status.className='selection-status';
+ m.status.setAttribute('role','status');m.status.setAttribute('aria-live','polite');panel.append(m.status);
+ m.status.textContent=GAME_MODES[m.index].name+' selected. '+(m.index+1)+' of '+GAME_MODES.length;
+ const page=document.createElement('span');page.className='game-mode-carousel-page';
+ page.textContent='SELECT MODE TO CHOOSE YOUR WEAPON';panel.append(page);
+ ui.append(panel);
+ // Swiping shares Weapon Selection's swipe distance, velocity and snap logic.
+ // Pointer capture keeps a fast drag continuous even outside a card.
+ let drag=null;
+ track.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  const rect=track.getBoundingClientRect();
+  drag={id:e.pointerId,x:e.clientX,y:e.clientY,position:m.motion.position,
+   width:Math.max(1,rect.width),lastX:e.clientX,lastAt:e.timeStamp,velocity:0,
+   moved:false,card:e.target.closest('.game-mode-carousel-card')};
+  track.setPointerCapture(e.pointerId);
+ });
+ track.addEventListener('pointermove',e=>{
+  if(!drag||drag.id!==e.pointerId)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(!drag.moved&&Math.abs(dx)<8&&Math.abs(dy)<12)return;
+  drag.moved=true;e.preventDefault();
+  const scale=960/drag.width,elapsed=Math.max(1,e.timeStamp-drag.lastAt);
+  drag.velocity=-(e.clientX-drag.lastX)*scale/(elapsed*.06);
+  drag.lastX=e.clientX;drag.lastAt=e.timeStamp;
+  m.motion.drag(drag.position-dx*scale/450);
+ });
+ track.addEventListener('pointerup',e=>{
+  if(!drag||drag.id!==e.pointerId)return;
+  const completed=drag;drag=null;
+  if(completed.moved){
+   const velocity=e.timeStamp-completed.lastAt>100?0:completed.velocity;
+   m.index=m.motion.release(velocity);
+  }else if(completed.card){
+   const index=Number(completed.card.dataset.index);
+   if(index!==m.index){m.index=index;m.motion.go(index);}
+  }
+  m.status.textContent=GAME_MODES[m.index].name+' selected. '+(m.index+1)+' of '+GAME_MODES.length;
+  updateModeCarousel();
+ });
+ track.addEventListener('pointercancel',e=>{
+  if(!drag||drag.id!==e.pointerId)return;
+  drag=null;m.index=m.motion.release(0);updateModeCarousel();
+ });
+ updateModeCarousel();panel.focus({preventScroll:true});
 }
 
 let skinPreviewCanvas=null,skinPreviewStatus=null;
@@ -716,11 +826,16 @@ function about(){state='about';const {c}=screen('A notebook full of trouble',{cl
 window.addEventListener('keydown',e=>{const k=e.code;
  if(state==='controls'&&captureControl){e.preventDefault();if(e.repeat)return;if(k==='Escape'){captureControl=null;controlsScreen(controlsReturn);return;}const next=bindControl(save.settings.controls,captureControl,k);if(next){save.settings.controls=next;captureControl=null;persist();updateControlHint();sfx('click');controlsScreen(controlsReturn);}return;}
  if(e.repeat){if(state==='playing'&&Object.values(save.settings.controls).includes(k))e.preventDefault();return;}if(k==='Escape'||k===save.settings.controls.pause){if(state==='playing'){e.preventDefault();pause();}else if(state==='paused'){e.preventDefault();resume();}return;}
- if(state==='select'&&(k==='KeyA'||k==='KeyD')){e.preventDefault();if(!e.target.closest?.('.weapon-selection'))document.querySelector('.weapon-selection')?.dispatchEvent(new KeyboardEvent('keydown',{key:k==='KeyA'?'a':'d',bubbles:false}));return;}if(state!=='playing')return;const c=save.settings.controls;if(k!==c.jump&&k!==c.fire)return;e.preventDefault();keys.add(k);if(k===c.jump)world.jump();if(k===c.fire&&world.cooldown<=0)world.shoot();syncInput();});window.addEventListener('keyup',e=>{keys.delete(e.code);syncInput();});window.addEventListener('blur',()=>{if(state==='playing')pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause();});window.addEventListener('contextmenu',e=>{if(e.target.closest('#frame'))e.preventDefault();});if(matchMedia('(pointer: coarse)').matches)$('#hint').textContent='Touch controls · landscape recommended';const toggleFullscreen=async()=>{sfx('click');const app=$('#app');try{if(document.fullscreenElement){await document.exitFullscreen();}else if(app.requestFullscreen){await app.requestFullscreen();if(window.screen.orientation?.lock)await window.screen.orientation.lock('landscape').catch(()=>{});}else{app.classList.toggle('app-expanded');}}catch{app.classList.toggle('app-expanded');}resizeViewport();};$('#fullscreen').onclick=toggleFullscreen;$('#mobileFullscreen').onclick=toggleFullscreen;
+ if(state==='game-modes'){
+  if(['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(k)){e.preventDefault();browseMode(k==='ArrowLeft'||k==='KeyA'?-1:1);return;}
+  if(k==='Enter'&&!e.target.closest?.('button')){e.preventDefault();confirmGameMode();return;}
+  if(k==='Escape'){e.preventDefault();menu();return;}
+  return;
+ }if(state==='select'&&(k==='KeyA'||k==='KeyD')){e.preventDefault();if(!e.target.closest?.('.weapon-selection'))document.querySelector('.weapon-selection')?.dispatchEvent(new KeyboardEvent('keydown',{key:k==='KeyA'?'a':'d',bubbles:false}));return;}if(state!=='playing')return;const c=save.settings.controls;if(k!==c.jump&&k!==c.fire)return;e.preventDefault();keys.add(k);if(k===c.jump)world.jump();if(k===c.fire&&world.cooldown<=0)world.shoot();syncInput();});window.addEventListener('keyup',e=>{keys.delete(e.code);syncInput();});window.addEventListener('blur',()=>{if(state==='playing')pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause();});window.addEventListener('contextmenu',e=>{if(e.target.closest('#frame'))e.preventDefault();});if(matchMedia('(pointer: coarse)').matches)$('#hint').textContent='Touch controls · landscape recommended';const toggleFullscreen=async()=>{sfx('click');const app=$('#app');try{if(document.fullscreenElement){await document.exitFullscreen();}else if(app.requestFullscreen){await app.requestFullscreen();if(window.screen.orientation?.lock)await window.screen.orientation.lock('landscape').catch(()=>{});}else{app.classList.toggle('app-expanded');}}catch{app.classList.toggle('app-expanded');}resizeViewport();};$('#fullscreen').onclick=toggleFullscreen;$('#mobileFullscreen').onclick=toggleFullscreen;
 let simulationRemainder=0;
 function frame(now){const dt=Math.max(0,Math.min((now-last)/1000||0,.1));last=now;anim+=dt;
  if(state==='playing'&&world){simulationRemainder+=dt;while(simulationRemainder>=1/60-1e-9&&state==='playing'){world.update(1/60);emberTrail.step(world,selectedSkin==='obsidian_ember',1/60,PLAYER_X);tipTime+=1/60;simulationRemainder-=1/60;if(world.dead&&world.deathTime>1.25)finishRun();}}else simulationRemainder=0;
- if(world&&['playing','paused','over'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}else if(state==='skins')updateSkinPreview();requestAnimationFrame(frame);
+ if(world&&['playing','paused','over'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}else if(state==='game-modes'){modeCarousel.motion.advance(dt);updateModeCarousel();}else if(state==='skins')updateSkinPreview();requestAnimationFrame(frame);
 }
 async function boot(){try{const skinThumbsReady=preloadSkinThumbnails().catch(e=>{console.error('Skin thumbnails failed:',e);return 0;});const bossAudioReady=soundPlayer.preload([BOSS_SHOT_SOUND,BOSS_COCK_SOUND]);let atlasProgress=0,uiProgress=0;const progress=()=>{$('#progress').value=atlasProgress*.7+uiProgress*.3;};$('#loadStatus').textContent='Loading artwork and menu textures';const uiReady=preloadUiImages(UI_IMAGE_URLS,{onProgress:(done,total)=>{uiProgress=done/total*100;progress();}});uiReady.catch(()=>{});warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
  await Promise.all(Array.from({length:2},async()=>{while(queue.length){const sheet=queue.shift();await new Promise((resolve,reject)=>{

@@ -36,3 +36,22 @@ test('Coin Frenzy spawns as a true source-sized pickup from a rare pattern bound
  assert.ok(w.director.pauseRemaining>0);
  assert.ok(w.director.activeTime>=35);
 });
+
+test('Game Mode carousel supports two modes and 3+ modes without affecting weapon limits',()=>{
+ for(const fps of [30,60,120]){
+  const m=new CarouselMotion(0,2);
+  m.go(1);for(let i=0;i<fps;i++)m.advance(1/fps);
+  assert.equal(m.position,1);assert.ok(m.settled);
+  m.go(9);assert.equal(m.target,1);
+  m.drag(-.1);assert.equal(m.release(-300),0);
+  m.advance(2);assert.equal(m.position,0);
+  m.drag(.3);assert.equal(m.release(300),1);
+  m.advance(2);assert.equal(m.position,1);
+ }
+ const modeList=new CarouselMotion(0,5);
+ modeList.go(4);modeList.advance(2);assert.equal(modeList.position,4);
+ modeList.drag(4.3);assert.equal(modeList.release(120),4);
+ const weapon=new CarouselMotion(0);
+ weapon.go(9);weapon.advance(2);assert.equal(weapon.position,9);
+ weapon.go(12);assert.equal(weapon.target,9);
+});
