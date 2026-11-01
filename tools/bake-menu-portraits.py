@@ -34,7 +34,7 @@ def blend(a,b,t):return tuple(a[i]*(1-t)+b[i]*t for i in range(3))
 def within(x,y,points):
  inside=False
  for p,q in zip(points,points[-1:]+points[:-1]):
-  if (p[1]>y)!=(q[1]>y) and x<(q[0]-p[0])*(y-p[1])/(q[1]-p[1])+p[0]):inside=not inside
+  if (p[1]>y)!=(q[1]>y) and x<(q[0]-p[0])*(y-p[1])/(q[1]-p[1])+p[0]:inside=not inside
  return inside
 def zone(x,y):
  hx=(x-HEAD[0])/HEAD[2];hy=(y-HEAD[1])/HEAD[3]
