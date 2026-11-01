@@ -229,3 +229,21 @@ test('Mode carousel is card-based, retains gameplay transition, and uses actual 
  assert.ok(getGameMode(CLASSIC_MODE).previewSprites.includes('CHR_RunNGun_01'));
  assert.equal(getGameMode(BOMB_MODE).bossReward,500);
 });
+
+test('Polished mode cards reuse exact artwork while preserving mode rewards and navigation',()=>{
+ const game=fs.readFileSync(new URL('../dist/game.js',import.meta.url),'utf8');
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ assert.match(game,/mode-preview-sprite/);
+ assert.match(game,/preview\.append\(piece\)/);
+ assert.match(game,/modePreviewArt\.set\(mode\.id,preview\)/);
+ assert.match(game,/for\(const mode of GAME_MODES\)gameModePreview\(mode\)/);
+ assert.match(game,/reward\.textContent='BOSS REWARD: '\+fmt\(mode\.bossReward\)\+' COINS'/);
+ assert.match(game,/modeCarouselSlideSound\(\)/);
+ assert.doesNotMatch(game,/game-mode-carousel-page/);
+ assert.match(css,/radial-gradient\(ellipse at 13% 18%/);
+ assert.match(css,/\.game-mode-carousel-prev\{left:10\.5%\}/);
+ assert.match(css,/mode-preview-bombs \.mode-preview-sprite/);
+ assert.match(css,/prefers-reduced-motion:reduce/);
+ assert.equal(getGameMode(CLASSIC_MODE).bossReward,100);
+ assert.equal(getGameMode(BOMB_MODE).bossReward,500);
+});

@@ -111,7 +111,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'GAME MODE CAROUSEL';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'MODE CAROUSEL POLISH';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -418,29 +418,34 @@ const MAIN_MENU_BUTTONS=[
 ];
 
 const modePreviewArt=new Map();
-// Original extracted sprites are decoded during boot; illustrated card previews
-// are baked only once and reused on every visit and animation frame.
+// Every mode preview is assembled from the real APK sprites during the loading
+// screen. Individual sprite layers can bob independently using CSS without
+// repainting game canvases or making image allocations each frame.
 function gameModePreview(mode){
  if(modePreviewArt.has(mode.id))return modePreviewArt.get(mode.id);
- const c=document.createElement('canvas');c.className='game-mode-carousel-art';c.width=340;c.height=175;
- const p=c.getContext('2d');
- p.fillStyle='#dceaf029';p.fillRect(7,18,326,146);
- p.strokeStyle='#5688a34a';p.lineWidth=2;
- for(let line=0;line<4;line++){p.beginPath();p.moveTo(12,52+line*33);p.lineTo(328,52+line*33);p.stroke();}
- const names=mode.previewSprites||[];
+ const preview=document.createElement('div');
+ preview.className='game-mode-preview '+(mode.id===BOMB_MODE?'mode-preview-bombs':'mode-preview-classic');
  const bombs=mode.id===BOMB_MODE;
- const art=bombs?[names[0],names[0],names[0]]:names;
- art.forEach((name,i)=>{
-  const image=assets[name];if(!image)return;
-  const n=art.length,points=bombs?[[82,105,.71],[168,82,1.06],[262,113,.83]]:n===3?[[88,101,1.15],[237,133,.83],[291,128,.82]]:[[105,105,1],[240,110,1]];
-  const [cx,cy,mult]=points[Math.min(i,points.length-1)];
-  const size=bombs?103:(i===0?142:90);
-  const factor=Math.min(size/image.width,size/image.height,1.55)*mult;
-  const width=image.width*factor,height=image.height*factor;
-  p.save();p.globalAlpha=bombs&&i!==1?.76:1;
-  p.drawImage(image,cx-width/2,cy-height/2,width,height);p.restore();
- });
- modePreviewArt.set(mode.id,c);return c;
+ const source=mode.previewSprites||[];
+ const layout=bombs?
+  [{name:source[0],x:20,bottom:22,width:29,delay:-.5,duration:2.8},
+   {name:source[0],x:50,bottom:12,width:46,delay:0,duration:2.2},
+   {name:source[0],x:83,bottom:24,width:26,delay:-1.2,duration:3.1}]:
+  [{name:source[0],x:33,bottom:8,width:42,delay:0,duration:2.9},
+   {name:source[1],x:72,bottom:8,width:30,delay:-.7,duration:3.2},
+   {name:source[2],x:91,bottom:13,width:24,delay:-1.3,duration:3.6}];
+ for(const [i,part]of layout.entries()){
+  const image=assets[part.name];if(!image)continue;
+  const piece=document.createElement('canvas');piece.width=image.width;piece.height=image.height;
+  piece.className='mode-preview-sprite mode-preview-sprite-'+i;
+  piece.setAttribute('aria-hidden','true');
+  piece.getContext('2d').drawImage(image,0,0);
+  piece.style.left=part.x+'%';piece.style.bottom=part.bottom+'%';piece.style.width=part.width+'%';
+  piece.style.animationDelay=part.delay+'s';piece.style.animationDuration=part.duration+'s';
+  piece.style.zIndex=bombs?String(i===1?3:1):String(i===0?3:2);
+  preview.append(piece);
+ }
+ modePreviewArt.set(mode.id,preview);return preview;
 }
 function modeCard(mode,i){
  const card=document.createElement('article');
@@ -455,7 +460,7 @@ function modeCard(mode,i){
  if(mode.id===BOMB_MODE)art.classList.add('mode-card-floating');
  const desc=document.createElement('p');desc.className='mode-card-description';desc.textContent=mode.description;
  const reward=document.createElement('div');reward.className='mode-card-reward';
- reward.textContent=mode.id===BOMB_MODE?'BOSS DEFEATED: +'+fmt(mode.bossReward)+' COINS':'BOSS REWARD: +'+fmt(mode.bossReward)+' COINS';
+ reward.textContent='BOSS REWARD: '+fmt(mode.bossReward)+' COINS';
  card.append(number,title,art,desc,reward);
  return card;
 }
@@ -466,12 +471,13 @@ function updateModeCarousel(){
  const width=m.track.getBoundingClientRect().width;
  for(let i=0;i<m.cards.length;i++){
   const card=m.cards[i],delta=i-motion.position,distance=Math.abs(delta);
-  const scale=Math.max(.63,1-.37*Math.min(1,distance));
-  const opacity=Math.max(.34,1-.47*Math.min(1,distance));
+  const scale=Math.max(.60,1-.40*Math.min(1,distance));
+  const opacity=Math.max(.40,1-.60*Math.min(1,distance));
   const offset=delta*width*.37;
   card.style.transform=`translate(-50%,-50%) translate3d(${offset}px,${Math.min(distance,1)*13}px,0) scale(${scale})`;
   card.style.opacity=String(opacity);
   card.style.zIndex=String(100-Math.round(distance*12));
+  card.style.filter=distance>.3?'saturate('+Math.max(.72,1-distance*.28)+')':'none';
   card.classList.toggle('is-selected',i===m.index);
   card.setAttribute('aria-selected',String(i===m.index));
   card.style.pointerEvents=Math.abs(delta)<1.35?'auto':'none';
@@ -480,11 +486,14 @@ function updateModeCarousel(){
  m.next.disabled=m.index===GAME_MODES.length-1;
  m.confirm.disabled=!motion.settled;
 }
+function modeCarouselSlideSound(){
+ if(save.settings.sound)soundPlayer.play('assets/Sounds/Sfx/S_0001_Click.wav',save.settings.volume*.24,{rate:.86});
+}
 function browseMode(delta){
  if(state!=='game-modes')return;
  const next=Math.max(0,Math.min(GAME_MODES.length-1,modeCarousel.index+delta));
  if(next===modeCarousel.index)return;
- modeCarousel.index=next;modeCarousel.motion.go(next);
+ modeCarousel.index=next;modeCarousel.motion.go(next);modeCarouselSlideSound();
  modeCarousel.status.textContent=GAME_MODES[next].name+' selected. '+(next+1)+' of '+GAME_MODES.length;
  updateModeCarousel();
 }
@@ -513,7 +522,7 @@ function gameModesScreen(){
  panel.append(track);
  const make=(label,fn,cls)=>{
   const button=document.createElement('button');button.type='button';button.className=cls;
-  button.setAttribute('aria-label',label);button.onclick=()=>{sfx('click');fn();};panel.append(button);return button;
+  button.setAttribute('aria-label',label);button.onclick=()=>{if(!cls.includes('carousel-prev')&&!cls.includes('carousel-next'))sfx('click');fn();};panel.append(button);return button;
  };
  m.prev=make('Previous mode',()=>browseMode(-1),'game-mode-carousel-prev');
  m.prev.innerHTML='<span aria-hidden="true">‹</span>';
@@ -526,8 +535,6 @@ function gameModesScreen(){
  m.status=document.createElement('span');m.status.className='selection-status';
  m.status.setAttribute('role','status');m.status.setAttribute('aria-live','polite');panel.append(m.status);
  m.status.textContent=GAME_MODES[m.index].name+' selected. '+(m.index+1)+' of '+GAME_MODES.length;
- const page=document.createElement('span');page.className='game-mode-carousel-page';
- page.textContent='SELECT MODE TO CHOOSE YOUR WEAPON';panel.append(page);
  ui.append(panel);
  // Swiping shares Weapon Selection's swipe distance, velocity and snap logic.
  // Pointer capture keeps a fast drag continuous even outside a card.
@@ -553,6 +560,7 @@ function gameModesScreen(){
  track.addEventListener('pointerup',e=>{
   if(!drag||drag.id!==e.pointerId)return;
   const completed=drag;drag=null;
+  const previous=m.index;
   if(completed.moved){
    const velocity=e.timeStamp-completed.lastAt>100?0:completed.velocity;
    m.index=m.motion.release(velocity);
@@ -560,6 +568,7 @@ function gameModesScreen(){
    const index=Number(completed.card.dataset.index);
    if(index!==m.index){m.index=index;m.motion.go(index);}
   }
+  if(m.index!==previous)modeCarouselSlideSound();
   m.status.textContent=GAME_MODES[m.index].name+' selected. '+(m.index+1)+' of '+GAME_MODES.length;
   updateModeCarousel();
  });

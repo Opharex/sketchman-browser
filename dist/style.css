@@ -259,71 +259,116 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
 
 
 
-/* Illustrated Game Mode carousel, using the same 960x640 frame as Weapon Select. */
+
+/* Game Mode carousel polish. Weapon Selection motion and gameplay stay intact.
+   Deep ink-blue painted edges echo the original PLS_WeaponBase artwork. */
 .game-mode-carousel{position:absolute;inset:0;overflow:hidden;touch-action:none;
- user-select:none;-webkit-user-select:none;outline:none;container-type:inline-size;color:#18466a}
-.game-mode-carousel-heading{position:absolute;left:21%;top:3%;width:58%;height:10%;margin:0;
- display:flex;justify-content:center;align-items:center;pointer-events:none}
-.game-mode-carousel-heading img{display:block;max-width:100%;max-height:100%;object-fit:contain}
-.game-mode-carousel-hint{position:absolute;left:25%;right:25%;top:12%;margin:0;text-align:center;
- color:#507590;font-size:clamp(9px,1.6cqw,16px);font-weight:900;letter-spacing:.11em;pointer-events:none}
-.game-mode-carousel-track{position:absolute;inset:16% 0 18%;overflow:hidden;touch-action:none;perspective:850px}
-.game-mode-carousel-card{position:absolute;left:50%;top:50%;width:46%;height:93%;min-width:0;
- overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
- background:linear-gradient(#ffffff80,#ffffff00 24%),repeating-linear-gradient(0deg,#adc8d014 0 1px,transparent 1px 17px),
- linear-gradient(140deg,#fffdf0,#ecf2e9 75%,#e6ecdf);
- border:4px solid #265b86;border-radius:18px 13px 20px 13px;box-shadow:inset 0 0 0 3px #f9ffff,6px 8px 0 #163b6052;
- transform-origin:center;will-change:transform,opacity;cursor:pointer;
- padding:1.2% 2%;box-sizing:border-box}
-.game-mode-carousel-card.is-selected{border-color:#126fa8;box-shadow:inset 0 0 0 4px #e3f9ff,5px 7px 0 #0f385b72}
-.mode-card-number{position:absolute;top:3%;right:4%;font-size:clamp(9px,1.5cqw,14px);font-weight:900;color:#7c9baa}
-.mode-card-name{display:flex;flex:none;align-items:center;justify-content:center;min-height:17%;max-width:98%;
- font:bold italic clamp(18px,3.1cqw,30px) 'Trebuchet MS',sans-serif;color:#173f68;text-align:center;
- line-height:1.02;letter-spacing:-.045em;text-shadow:2px 2px 0 #d0e4ed;overflow-wrap:anywhere}
-.mode-card-picture{width:98%;height:46%;display:flex;align-items:center;justify-content:center;flex:none;
- background:#e4eff440;border:2px dashed #6c9bb455;border-radius:15px;overflow:hidden}
-.mode-card-picture canvas{display:block;object-fit:contain;width:100%;height:100%;pointer-events:none}
-.game-mode-carousel-card.is-selected .mode-card-picture canvas{animation:mode-card-idle 3s ease-in-out infinite}
-.game-mode-carousel-card.is-selected .mode-card-floating canvas{animation:mode-mine-float 2.4s ease-in-out infinite}
-@keyframes mode-card-idle{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-@keyframes mode-mine-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-.mode-card-description{font-size:clamp(10px,1.75cqw,17px);font-weight:700;text-align:center;line-height:1.22;
- color:#3a617e;margin:3% 2% 0;flex:1;display:flex;align-items:center;justify-content:center}
-.mode-card-reward{display:flex;align-items:center;justify-content:center;width:97%;min-height:13%;
- background:#fff4d1;border:2px solid #b88b47;border-radius:9px;margin-top:1.5%;
- font:bold clamp(10px,1.66cqw,16px) 'Trebuchet MS',sans-serif;color:#83501b;text-align:center}
-.game-mode-carousel-prev,.game-mode-carousel-next{position:absolute;top:31%;width:11%;height:32%;
- background:#e4f4fbba;border:3px solid #2f76a5;border-radius:15px;
- box-shadow:3px 4px 0 #183b6066;display:flex;align-items:center;justify-content:center;
- color:#1e608c;cursor:pointer;touch-action:manipulation;z-index:125}
-.game-mode-carousel-prev{left:1.4%}.game-mode-carousel-next{right:1.4%}
-.game-mode-carousel-prev span,.game-mode-carousel-next span{font:bold clamp(30px,7cqw,72px) 'Trebuchet MS',sans-serif;line-height:1}
-.game-mode-carousel-prev:disabled,.game-mode-carousel-next:disabled{opacity:.2;pointer-events:none}
-.game-mode-carousel-confirm{position:absolute;left:35%;top:83.5%;width:30%;height:12%;z-index:140;min-width:0;min-height:0}
+ user-select:none;-webkit-user-select:none;outline:none;container-type:inline-size;color:#153c61}
+.game-mode-carousel-heading{position:absolute;left:26%;top:3.5%;width:48%;height:9.5%;margin:0;
+ display:flex;align-items:center;justify-content:center;pointer-events:none}
+.game-mode-carousel-heading img,.game-mode-carousel-heading canvas{max-width:100%;max-height:100%;object-fit:contain}
+.game-mode-carousel-hint{position:absolute;left:26%;right:26%;top:13%;margin:0;
+ text-align:center;font-size:clamp(9px,1.55cqw,15px);font-weight:900;letter-spacing:.085em;
+ color:#59758b;pointer-events:none}
+.game-mode-carousel-track{position:absolute;inset:18% 0 16%;overflow:hidden;touch-action:none;perspective:850px}
+.game-mode-carousel-card{position:absolute;top:50%;left:50%;width:46%;height:92%;min-width:0;
+ overflow:hidden;isolation:isolate;display:flex;flex-direction:column;align-items:center;
+ padding:3% 3.4% 2.6%;box-sizing:border-box;transform-origin:center;
+ border:5px solid #123f68;border-radius:18px 24px 16px 22px;
+ background:radial-gradient(ellipse at 13% 18%,#b9eaffbd,transparent 38%),
+ linear-gradient(133deg,#218bc4 0%,#0d5d9c 22%,#267fb0 46%,#0b4d85 71%,#2ca3d1 100%);
+ box-shadow:inset 0 0 0 3px #70bee2,inset 0 0 0 7px #104977,
+ 5px 8px 0 #10365c66,0 0 0 1px #0d345a;
+ will-change:transform,opacity;cursor:pointer}
+.game-mode-carousel-card::before{content:'';position:absolute;inset:9px 9px 10px;
+ border-radius:12px 17px 10px 15px;border:2px solid #b9d7e3;
+ background:repeating-linear-gradient(0deg,#8caeb515 0 1px,transparent 1px 19px),
+ repeating-linear-gradient(90deg,#8caeb50b 0 1px,transparent 1px 21px),
+ linear-gradient(135deg,#fffdf2,#eff3e7 74%,#e8eddf);z-index:-1;pointer-events:none}
+.game-mode-carousel-card::after{content:'';position:absolute;inset:2px;pointer-events:none;
+ border:1px dashed #c3ecf777;border-radius:15px 20px 13px 19px;z-index:2}
+.game-mode-carousel-card.is-selected{border-color:#0b477b;
+ box-shadow:inset 0 0 0 3px #89ddf8,inset 0 0 0 7px #115d9f,
+ 5px 9px 0 #0c365a78,0 0 0 2px #367faf}
+.mode-card-number{position:absolute;top:5.4%;right:7%;font-size:clamp(9px,1.4cqw,13px);
+ font-weight:900;color:#68889e;z-index:1}
+.mode-card-name{position:relative;z-index:1;display:flex;flex:none;align-items:center;
+ justify-content:center;min-height:16%;max-width:94%;text-align:center;
+ font:bold italic clamp(16px,3.1cqw,30px) 'Trebuchet MS',sans-serif;
+ line-height:1.02;letter-spacing:-.045em;overflow-wrap:anywhere;
+ color:#143e6a;text-shadow:2px 2px 0 #b9d7eb}
+.mode-card-picture{position:relative;z-index:1;width:95%;height:49%;display:block;flex:none;
+ border:2px solid #598bb1;border-radius:14px 11px 16px 10px;
+ background:linear-gradient(145deg,#e5eff6,#bbd6e989 54%,#f9f8df);
+ box-shadow:inset 0 1px 6px #1b5e8528,2px 3px 0 #224e7029;overflow:hidden}
+.game-mode-preview{position:absolute;inset:0;overflow:hidden;
+ background:repeating-linear-gradient(0deg,transparent 0 29px,#6995b816 30px 31px),
+ radial-gradient(ellipse at 50% 60%,#ffffffab,transparent 70%);pointer-events:none}
+.game-mode-preview::before{content:'';position:absolute;inset:14% 0 26%;
+ background:repeating-linear-gradient(-13deg,transparent 0 19px,#4577991a 20px 22px);
+ opacity:.6;pointer-events:none}
+.mode-preview-classic::after{content:'';position:absolute;left:3%;right:3%;bottom:7%;
+ border-bottom:3px dashed #41698b66;pointer-events:none}
+.mode-preview-bombs::after{content:'';position:absolute;inset:12%;
+ background:radial-gradient(circle at 50% 60%,transparent 35%,#d4826a30 36%,transparent 39%);
+ pointer-events:none}
+.mode-preview-sprite{position:absolute;display:block;height:auto;transform:translateX(-50%);
+ max-width:none;pointer-events:none}
+.game-mode-carousel-card.is-selected .mode-preview-bombs .mode-preview-sprite{
+ animation:mode-float ease-in-out infinite}
+.game-mode-carousel-card.is-selected .mode-preview-classic .mode-preview-sprite-0{
+ animation:mode-float-character 2.9s ease-in-out infinite}
+.game-mode-carousel-card.is-selected .mode-preview-classic .mode-preview-sprite-1,
+.game-mode-carousel-card.is-selected .mode-preview-classic .mode-preview-sprite-2{
+ animation:mode-shift 3.2s ease-in-out infinite}
+@keyframes mode-float{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-7px)}}
+@keyframes mode-float-character{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-3px)}}
+@keyframes mode-shift{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-1.5px)}}
+.mode-card-description{position:relative;z-index:1;display:flex;align-items:center;
+ justify-content:center;flex:1;min-height:0;margin:1.6% 2% 0;
+ color:#355d7b;font-size:clamp(10px,1.7cqw,17px);line-height:1.18;
+ font-weight:700;text-align:center}
+.mode-card-reward{position:relative;z-index:1;display:flex;flex:none;align-items:center;
+ justify-content:center;width:96%;min-height:11%;margin-top:1%;
+ background:linear-gradient(135deg,#fff5d6,#f7deab);color:#825318;
+ border:2px solid #af843e;border-radius:9px 11px 8px 10px;
+ font:bold clamp(10px,1.62cqw,16px) 'Trebuchet MS',sans-serif;
+ text-align:center;line-height:1.08}
+.game-mode-carousel-prev,.game-mode-carousel-next{position:absolute;top:4.5%;
+ width:10%;height:10%;display:flex;align-items:center;justify-content:center;
+ padding:0;border:3px solid #155b94;border-radius:13px 9px 14px 10px;
+ background:linear-gradient(145deg,#84cef0,#177ebc 74%,#0e609b);
+ box-shadow:inset 0 0 0 2px #d6f3fd,2px 3px 0 #0b427570;
+ color:#fff7d7;cursor:pointer;touch-action:manipulation;z-index:125}
+.game-mode-carousel-prev{left:10.5%}.game-mode-carousel-next{right:10.5%}
+.game-mode-carousel-prev span,.game-mode-carousel-next span{font:bold clamp(25px,5.5cqw,52px) 'Trebuchet MS',sans-serif;
+ line-height:.85;text-shadow:1px 2px 0 #0b456d}
+.game-mode-carousel-prev:disabled,.game-mode-carousel-next:disabled{opacity:.30;pointer-events:none}
+.game-mode-carousel-prev:not(:disabled):active,.game-mode-carousel-next:not(:disabled):active{transform:translateY(2px)}
+.game-mode-carousel-confirm{position:absolute;left:35%;top:84%;width:30%;height:12%;
+ z-index:140;min-width:0;min-height:0}
 .game-mode-carousel-confirm .menu-lettering{max-width:89%;height:68%;max-height:100%}
 .game-mode-carousel-confirm:disabled{opacity:.55;cursor:default;pointer-events:none}
 .game-mode-carousel-back{position:absolute;left:2.5%;bottom:3%;width:11%;height:11%;
  background:transparent;border:0;padding:0;z-index:140;cursor:pointer;touch-action:manipulation}
 .game-mode-carousel-back img{width:100%;height:100%;object-fit:contain}
-.game-mode-carousel-page{position:absolute;right:3%;bottom:4.5%;font-size:clamp(9px,1.65cqw,17px);
- font-weight:900;color:#446c8b;letter-spacing:.06em;pointer-events:none}
 .game-mode-carousel button:focus-visible{outline:3px solid #d04936;outline-offset:1px}
 #frame:has(.game-mode-carousel) #mobileFullscreen{display:none}
 @media(max-width:600px) and (orientation:portrait){
- .game-mode-carousel-card{width:51%;padding:1.2% 1.5%;border-width:3px}
+ .game-mode-carousel-card{width:51%;border-width:3px;padding:3% 3.5% 2%}
+ .game-mode-carousel-card::before{inset:6px}
  .mode-card-name{font-size:clamp(11px,3.5cqw,22px)}
- .mode-card-description{font-size:clamp(9px,1.95cqw,15px)}
- .mode-card-reward{font-size:clamp(9px,1.75cqw,13px)}
- .game-mode-carousel-prev,.game-mode-carousel-next{width:12%;border-width:2px}
- .game-mode-carousel-page{display:none}
+ .mode-card-description{font-size:clamp(9px,1.9cqw,15px)}
+ .mode-card-reward{font-size:clamp(9px,1.7cqw,13px)}
+ .game-mode-carousel-prev,.game-mode-carousel-next{height:10%;border-width:2px}
  .game-mode-carousel-confirm{left:32%;width:36%}
 }
 @media(orientation:landscape) and (max-height:550px){
- .game-mode-carousel-heading{height:10%;top:2%}
- .game-mode-carousel-hint{top:11%}
- .game-mode-carousel-track{inset:15% 0 17%}
- .game-mode-carousel-card{height:96%;border-width:3px;padding:1% 2%}
+ .game-mode-carousel-track{inset:18% 0 16%}
+ .game-mode-carousel-card{height:95%;padding:2.8% 3.3% 2.3%;border-width:3px}
  .game-mode-carousel-confirm{top:84%;height:11%}
  .game-mode-carousel-back{bottom:2.5%}
 }
-@media(prefers-reduced-motion:reduce){.game-mode-carousel-card.is-selected .mode-card-picture canvas{animation:none}}
+@media(prefers-reduced-motion:reduce){
+ .game-mode-carousel-card.is-selected .mode-preview-sprite{animation:none!important}
+}
