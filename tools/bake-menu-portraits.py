@@ -13,10 +13,14 @@ IDS=('crimson_bolt','frost_runner','toxic_lime','royal_gold','neon_synthwave',
      'obsidian_ember','deep_ocean','sunset_blaze','jungle_camo')
 RECT=(327,134,155,187)
 HEAD=(404.5,181.5,43,41)
+# One connected hand-traced title-body contour. The previous separate arm
+# polygons left a strip of the original blue paint visible between the arm
+# and chest. One contiguous prebuilt matte has no such seam.
 BODY=(
- ((377,223),(393,217),(420,223),(430,240),(438,254),(440,286),(444,306),(387,307),(378,278),(370,253)),
- ((372,228),(382,237),(371,256),(366,278),(371,293),(363,306),(348,305),(343,291),(350,266),(357,242)),
- ((420,234),(432,239),(445,249),(459,259),(459,271),(448,274),(436,263),(422,248)),
+ ((384,221),(402,216),(426,221),(439,233),(448,246),(459,258),
+  (463,270),(454,276),(445,272),(437,263),(442,289),(445,312),
+  (387,312),(385,304),(380,290),(373,283),(374,303),(363,309),
+  (351,310),(342,301),(340,285),(351,256),(364,232)),
 )
 PALETTE={
  'crimson_bolt':((52,0,8),(136,0,24),(243,18,44),(255,241,241)),
