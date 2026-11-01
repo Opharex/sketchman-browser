@@ -4,7 +4,7 @@ export const MENU_PORTRAIT_IDS=Object.freeze([
  'crimson_bolt','frost_runner','toxic_lime','royal_gold','neon_synthwave',
  'obsidian_ember','deep_ocean','sunset_blaze','jungle_camo'
 ]);
-export const MENU_PORTRAIT_ERASE=Object.freeze({x:278,y:68,width:350,height:246});
+export const MENU_PORTRAIT_ERASE=Object.freeze({x:255,y:65,width:380,height:249});
 export const MENU_PORTRAIT_PLACEMENT=Object.freeze({x:272,y:70,width:224,height:232});
 export const portraitUrl=id=>'menu-portraits/'+id+'.webp';
 export function choosePortrait(previous=null,random=Math.random,ids=MENU_PORTRAIT_IDS){
