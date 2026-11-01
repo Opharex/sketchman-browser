@@ -283,7 +283,8 @@ function prepareCoinArtwork(){
  const paint=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
  paint.filter='hue-rotate(-60deg) saturate(1.35)';paint.drawImage(source,0,0);paint.filter='none';
  const size=Math.min(w,h)*.58;
- paint.shadowColor='#ffb822';paint.shadowBlur=4;paint.drawImage(coin,(w-size)/2,(h-size)/2-5,size,size);paint.shadowBlur=0;
+ paint.fillStyle='#ffe18b9c';paint.beginPath();paint.arc(w/2,h/2-5,size*.54,0,Math.PI*2);paint.fill();
+ paint.drawImage(coin,(w-size)/2,(h-size)/2-5,size,size);
  paint.textAlign='center';paint.textBaseline='middle';paint.lineJoin='round';
  paint.font='900 '+Math.max(13,Math.round(h*.25))+'px Trebuchet MS, sans-serif';
  paint.lineWidth=Math.max(3,h*.055);paint.strokeStyle='#54260c';paint.strokeText('x2',w*.51,h*.78);

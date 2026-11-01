@@ -34,8 +34,8 @@ test('green and red coins pay 5/10 across shop-only, pickup-only and combined x4
   if(boost)w.coinBoostTimer=COIN_BOOST_DURATION;
   for(const [tier,value] of [[1,5],[2,10]]){
    w.spawn('coin',tier,PLAYER_X+1,FLOOR-35);
+   assert.equal(w.entities.at(-1).value,value);
    w.update(1/120);
-   assert.equal(w.entities.find(e=>e.type==='coin'&&e.id===tier)?.value,value);
   }
   assert.equal(w.coins,15*mult);
   assert.equal(coinPayout(0,shop,boost),mult);
