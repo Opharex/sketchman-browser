@@ -19,7 +19,8 @@ import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animati
 import {sceneryTile} from './normal-run.js';
 import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites} from './skins.js?v=nine-skins-01';
 import {isAtlasSkin,thumbnailUrl,skinThumbnail,preloadSkinThumbnails,ensureSkinAtlas,releaseInactiveAtlases,getAtlasFrame,validateSkinMetadata} from './skin-atlas.js?v=obsidian-material-03';
-import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=bomb-boss-bounty-01';
+import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=rare-coins-01';
+import {COIN_BOOST_DURATION} from './coin-system.js';
 import {CLASSIC_MODE,BOMB_MODE,GAME_MODES,getGameMode,modeScoreRecord} from './game-modes.js?v=bomb-boss-bounty-01';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const BOSS_TEST=new URLSearchParams(location.search).get('bossTest')==='1';
@@ -51,7 +52,7 @@ const fmt=n=>Math.floor(n).toLocaleString();
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(save));}catch{storageOK=false;}}
 function toast(text){$('#toast').textContent=text;$('#toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),2600);}
 const soundPlayer=createSoundPlayer();
-const soundNames={shoot:['S_0002_GunFire.wav','S_0003_ShotgunFire.wav','S_0004_SMGFire.wav','S_0005_Rpg2.wav','S_0038_ShootArrow.wav','S_0002_GunFire.wav','S_0044_Rocketv1.wav','S_0048_ShockwaveGun.wav','S_0049_Shockwave2.wav','S_0049_Shockwave2.wav'],coin:'S_0016_Coin2.wav',jump:'S_0011_Jump.wav',hit:'S_0009_DryThump.wav',explosion:'S_0015_Explosion2.wav',health:'S_0037_PowerupHP.wav',shield:'S_0047_Invincible.wav',revive:'S_0046_Resurect.wav',complete:'S_0040_MissionDone.wav',click:'S_0001_Click.wav'};
+const soundNames={shoot:['S_0002_GunFire.wav','S_0003_ShotgunFire.wav','S_0004_SMGFire.wav','S_0005_Rpg2.wav','S_0038_ShootArrow.wav','S_0002_GunFire.wav','S_0044_Rocketv1.wav','S_0048_ShockwaveGun.wav','S_0049_Shockwave2.wav','S_0049_Shockwave2.wav'],coin:'S_0016_Coin2.wav',jump:'S_0011_Jump.wav',hit:'S_0009_DryThump.wav',explosion:'S_0015_Explosion2.wav',health:'S_0037_PowerupHP.wav',shield:'S_0047_Invincible.wav',coinBoost:'S_0037_PowerupHP.wav',revive:'S_0046_Resurect.wav',complete:'S_0040_MissionDone.wav',click:'S_0001_Click.wav'};
 function sfx(event,id=0){if(!save.settings.sound)return;let file=effectSound(event,id)||soundNames[event];if(Array.isArray(file))file=file[id]||file[0];if(file)soundPlayer.play(`assets/Sounds/Sfx/${file}`,save.settings.volume*.55);}
 // Preload menu music during the intro instead of fetching it after the menu appears.
 // Browsers can block audible autoplay until a user gesture; resume it on the first
@@ -108,7 +109,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'BOMB BOSS BOUNTY 500';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'RARE COINS + COIN FRENZY';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -263,6 +264,32 @@ function drawHealthBar(x,y,fraction){
  drawFrame('GPROP_DamageBarBase_01',x,y,1);
  ctx.save();ctx.beginPath();ctx.rect(x-32,y-3,64*fraction,6);ctx.clip();drawFrame('GPROP_DamageBar_01',x,y,1);ctx.restore();
 }
+// Reuse the original APK coin frames and invincibility pickup, then cache all
+// recolors and the new double-coins artwork once during the loading screen.
+function prepareCoinArtwork(){
+ const shades={green:'hue-rotate(88deg) saturate(1.7)',red:'hue-rotate(-48deg) saturate(1.8)'};
+ for(let frame=1;frame<=6;frame++){
+  const suffix=String(frame).padStart(2,'0'),originalName='CON_Coin_'+suffix,source=assets[originalName];
+  if(!source)throw new Error('Missing coin frame '+originalName);
+  for(const [tier,filter] of Object.entries(shades)){
+   const canvas=document.createElement('canvas');canvas.width=source.width;canvas.height=source.height;
+   const paint=canvas.getContext('2d');paint.filter=filter;paint.drawImage(source,0,0);paint.filter='none';
+   const name='COIN_'+tier+'_'+suffix;assets[name]=canvas;sprites[name]=sprites[originalName];
+  }
+ }
+ const source=assets.PWR_Invincible_01,coin=assets.CON_Coin_03;
+ if(!source||!coin)throw new Error('Missing original powerup artwork for Coin Frenzy');
+ const canvas=document.createElement('canvas');canvas.width=source.width;canvas.height=source.height;
+ const paint=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
+ paint.filter='hue-rotate(-60deg) saturate(1.35)';paint.drawImage(source,0,0);paint.filter='none';
+ const size=Math.min(w,h)*.58;
+ paint.shadowColor='#ffb822';paint.shadowBlur=4;paint.drawImage(coin,(w-size)/2,(h-size)/2-5,size,size);paint.shadowBlur=0;
+ paint.textAlign='center';paint.textBaseline='middle';paint.lineJoin='round';
+ paint.font='900 '+Math.max(13,Math.round(h*.25))+'px Trebuchet MS, sans-serif';
+ paint.lineWidth=Math.max(3,h*.055);paint.strokeStyle='#54260c';paint.strokeText('x2',w*.51,h*.78);
+ paint.fillStyle='#fff2a0';paint.fillText('x2',w*.51,h*.78);
+ assets.PWR_CoinBoost_01=canvas;sprites.PWR_CoinBoost_01=sprites.PWR_Invincible_01;
+}
 function renderBoss(w){const b=w.boss||w.bossDeath;if(!b)return;const dying=!!w.bossDeath&&!w.boss,alpha=dying?Math.min(1,(.7-b.deathTime)*4):1;
  drawFrame('ENM_Jeep_01',b.x,b.y,1,false,alpha);
  if(!dying&&bossRig){
@@ -291,8 +318,8 @@ function renderWorld(){
  if(selectedSkin==='obsidian_ember')emberTrail.draw(ctx,w);
  const shadowScale=Math.max(.3,1-(FLOOR-w.y)/400);img('SCN_Shadow_01',actorX-50*shadowScale,476,100*shadowScale,14,.32);
  for(const e of w.entities){if(e.x>1200)continue;const cy=e.y-e.h/2;
-  if(e.type==='coin')drawFrame(frameName('CON_Coin_',frameOf('coin',e.age)),e.x,cy,1);
-  else if(e.type==='health'||e.type==='shield')drawFrame(e.type==='health'?'PWR_Health_01':'PWR_Invincible_01',e.x,cy+(e.sourcePowerup?0:Math.sin(e.age*4)*3),e.sourcePowerup?1:.55);
+  if(e.type==='coin'){const prefix=e.id===1?'COIN_green_':e.id===2?'COIN_red_':'CON_Coin_';drawFrame(frameName(prefix,frameOf('coin',e.age)),e.x,cy,1);}
+  else if(e.type==='health'||e.type==='shield'||e.type==='coinBoost')drawFrame(e.type==='health'?'PWR_Health_01':e.type==='shield'?'PWR_Invincible_01':'PWR_CoinBoost_01',e.x,cy+(e.sourcePowerup?0:Math.sin(e.age*4)*3),e.sourcePowerup?1:.55);
   else if(e.type==='enemy'){
    const fade=e.dying?Math.max(0,1-(e.deathTime-.3)/.2):1;
    drawFrame(enemyFrame(e),e.x,e.y-64,1,e.facingRight??e.moveSpeed<0,fade);
@@ -331,7 +358,9 @@ function renderWorld(){
  // Foreground ink is in front of feet, matching the APK's layer order.
  off=w.foregroundScroll%1024;for(let x=-off;x<960;x+=1024)original('SCN_FrontFloor_01',x,482,1024,55);
  if(w.flash>0){ctx.fillStyle=`rgba(187,46,35,${w.flash*1.4})`;ctx.fillRect(0,0,960,640);}
- coinNumber(fmt(w.coins),100,52,88,34,25,'#fff');ctx.save();ctx.beginPath();ctx.rect(350,536,264*w.hp/100,29);ctx.clip();img('HUD_HealthBar_01',350,536,264,29);ctx.restore();
+ coinNumber(fmt(w.coins),100,52,88,34,25,'#fff');
+ if(w.coinBoostTimer>0){const multiplier=w.effects.doubleCoins?4:2;ctx.save();ctx.fillStyle='#fff5d8e8';ctx.strokeStyle='#3c6d4b';ctx.lineWidth=2;ctx.fillRect(205,36,170,37);ctx.strokeRect(205,36,170,37);text('COINS x'+multiplier+'  '+Math.ceil(w.coinBoostTimer)+'s',215,61,18,'#266341');ctx.restore();}
+ ctx.save();ctx.beginPath();ctx.rect(350,536,264*w.hp/100,29);ctx.clip();img('HUD_HealthBar_01',350,536,264,29);ctx.restore();
  text(`${fmt(w.distance)}m`,480,600,25,'#fff','center');
  if(!tutorial && w.t<2.4){
   const fade=Math.max(0,Math.min(1,(2.4-w.t)/.7));
@@ -560,7 +589,7 @@ function missionEligible(m,type,sub){if(m.event!==type)return false;const t=m.te
  if(type==='FireWeapon'){const names={pistol:0,shotgun:1,smg:2,rpg:3,'explosive arrows':4};for(const [word,id]of Object.entries(names))if(t.includes(word)&&sub!==id)return false;}
  if(type==='DestroyedStaticHazard'||type==='SmashIntoStaticHazard'||type==='NearMissStaticHazard'){const names={crate:0,barrel:1,'spike board':2,'land mine':3,saw:4,'air mine':5,'junk pile':6,'death ray':7};for(const [word,id]of Object.entries(names))if(t.includes(word)&&sub!==id)return false;}
  if(type==='KilledMovingEnemy'){if(t.includes('jet')&&sub!==1)return false;if((t.includes('sword')||t.includes('knife'))&&sub!==0)return false;}return true;}
-function event(type,amount=1,sub=0){if(type==='bossShoot')sfx('shoot',1);if(type==='bossCock'&&save.settings.sound)soundPlayer.play(BOSS_COCK_SOUND,save.settings.volume*.55,{rate:sub});if(['shoot','jump','coin','hit','hazardDestroy','hazardCrash','hazardHit','enemyDestroy','explosion','health','shield','revive'].includes(type))sfx(type,sub);if(type==='bossStart'){setMusic('M_0003_Boss.wav');toast('BOSS INCOMING!');}if(type==='bossEnd'){setMusic('M_0002_InGame.wav');toast(`${world?.mode.id===BOMB_MODE?'CHALLENGE CLEARED!':'Boss defeated!'} +${fmt(sub)} coins`);}if(type==='revive')toast('Extra life! Back in action.');if(type==='Died'){resetInput();setMusic('M_0004_GameOverLoop.wav');}
+function event(type,amount=1,sub=0){if(type==='bossShoot')sfx('shoot',1);if(type==='bossCock'&&save.settings.sound)soundPlayer.play(BOSS_COCK_SOUND,save.settings.volume*.55,{rate:sub});if(['shoot','jump','coin','hit','hazardDestroy','hazardCrash','hazardHit','enemyDestroy','explosion','health','shield','coinBoost','revive'].includes(type))sfx(type,sub);if(type==='bossStart'){setMusic('M_0003_Boss.wav');toast('BOSS INCOMING!');}if(type==='bossEnd'){setMusic('M_0002_InGame.wav');toast(`${world?.mode.id===BOMB_MODE?'CHALLENGE CLEARED!':'Boss defeated!'} +${fmt(sub)} coins`);}if(type==='coinBoost')toast('COIN FRENZY! x2 for '+COIN_BOOST_DURATION+' seconds'+(world?.effects.doubleCoins?' (x4 with shop bonus!)':''));if(type==='revive')toast('Extra life! Back in action.');if(type==='Died'){resetInput();setMusic('M_0004_GameOverLoop.wav');}
  if(BOSS_TEST||!missions.length||!world)return;if(['GotCoin','GotHP','Ran1Meter','Glide1Meter','BossKill','FireWeapon','KilledMovingEnemy','DestroyedStaticHazard','PlayGame'].includes(type))save.totals[type]=(save.totals[type]||0)+amount;
  for(const m of activeMissions()){if(save.completed.includes(m.id)||pendingMission.includes(m.id)||!missionEligible(m,type,sub))continue;const key=String(m.id);let inc=amount;if(type==='Died')inc=m.target;save.missionProgress[key]=(save.missionProgress[key]||0)+inc;if(save.missionProgress[key]>=m.target){pendingMission.push(m.id);save.completed.push(m.id);save.coins+=m.reward;sfx('complete');toast(`Mission complete!\n${m.text}\n+${fmt(m.reward)} coins`);persist();}}
 }
@@ -661,7 +690,7 @@ async function boot(){try{const skinThumbsReady=preloadSkinThumbnails().catch(e=
  await Promise.all(Array.from({length:2},async()=>{while(queue.length){const sheet=queue.shift();await new Promise((resolve,reject)=>{
   const im=new Image();im.onload=()=>{try{for(const n of sheet.names){const v=sprites[n].v,c=document.createElement('canvas');c.width=v[7];c.height=v[8];const context=c.getContext('2d');if(!context)throw new Error('Graphics memory unavailable');context.drawImage(im,v[1],v[2],v[7],v[8],0,0,v[7],v[8]);assets[n]=c;}loaded++;atlasProgress=loaded/sheets.size*100;progress();resolve();}catch(error){reject(error);}finally{im.onload=null;im.onerror=null;im.removeAttribute('src');}};
   im.onerror=()=>reject(new Error('Missing atlas: '+sheet.atlas));im.src=`assets/Graphics/${sheet.atlas}/${sheet.atlas}_${sheet.index+1}.png`;
- });}}));bossRig=createBossRig(assets.ENM_EnemyBOSS_Idle_01,{trimmed:true});prepareShadowSprites(assets,sprites);
+ });}}));bossRig=createBossRig(assets.ENM_EnemyBOSS_Idle_01,{trimmed:true});prepareCoinArtwork();prepareShadowSprites(assets,sprites);
  await Promise.all([...new Set([...EFFECT_TEXTURES,'ParExpStar_01','ParCoin01','gamePaper'])].map(n=>new Promise(resolve=>{const im=new Image();im.onload=()=>{assets[n]=im;resolve();};im.onerror=resolve;im.src=n==='gamePaper'?'assets/Graphics/LOC_Locations/SCN_Background.jpg':`assets/Graphics/Particles/${n}.png`;})));// Every UI image (including hover textures and HUD icons) is decoded before handoff.
  uiImages=await uiReady;await bossAudioReady;await skinThumbsReady;
  if(isAtlasSkin(selectedSkin))try{await ensureSkinAtlas(selectedSkin);validateSkinMetadata(sprites);}catch(error){console.error('Saved skin atlas unavailable:',error);selectedSkin=DEFAULT_SKIN;}

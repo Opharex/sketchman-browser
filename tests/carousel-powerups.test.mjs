@@ -23,3 +23,16 @@ test('no-item roll continues adjacent timeline pattern without changing difficul
 test('World emits source-sized pickups only at a boundary and keeps original speed/height',()=>{
  const patterns=Array.from({length:100},()=>({duration:1000,events:[]}));const w=new World({patterns});w.invincible=100;w.rand=()=>.7;for(let i=0;i<32*120;i++)w.update(1/120);const item=w.entities.find(e=>e.sourcePowerup);assert.ok(item);assert.equal(item.type,'health');assert.equal(item.w,96);assert.equal(item.h,96);assert.equal(item.y,140+Math.floor(.7*310)+48);assert.ok(item.moveSpeed>=430);assert.ok(w.director.pauseRemaining>0);const time=w.director.activeTime;for(let i=0;i<120;i++)w.update(1/120);assert.equal(w.director.activeTime,time);
 });
+
+test('Coin Frenzy spawns as a true source-sized pickup from a rare pattern boundary',()=>{
+ const patterns=Array.from({length:100},()=>({duration:1000,events:[]}));
+ const w=new World({patterns,seed:71});w.invincible=100;w.rand=()=>.7;w.bonusRandom=()=>.01;
+ for(let i=0;i<50*120&&!w.entities.some(e=>e.type==='coinBoost');i++)w.update(1/120);
+ const bonus=w.entities.find(e=>e.type==='coinBoost');
+ assert.ok(bonus,'Bonus pickup should appear after its first eligible boundary');
+ assert.equal(bonus.w,96);assert.equal(bonus.h,96);
+ assert.equal(bonus.sourcePowerup,true);assert.equal(bonus.sourceType,'coinBoost');
+ assert.ok(bonus.moveSpeed>=430);
+ assert.ok(w.director.pauseRemaining>0);
+ assert.ok(w.director.activeTime>=35);
+});
