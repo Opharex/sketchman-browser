@@ -43,9 +43,9 @@ test('the title uses real uploaded portrait files instead of procedural gameplay
  const game=fs.readFileSync(new URL('../dist/game.js',import.meta.url),'utf8');
  assert.match(game,/const menuPortraitsReady=preloadMenuPortraits\(\)/);
  assert.match(game,/menuPortraitImages=await menuPortraitsReady/);
- assert.match(game,/eraseLegacyTitleFigure\(oldHero\.data/);
+ assert.match(game,/paintTitlePosePixels\(paint\.poseOriginal\.data,width,height,sample,x,y\)/);
  assert.match(game,/const id=choosePortrait\(previousMenuPortrait\)/);
- assert.match(game,/paint\.context\.drawImage\(art,slot\.x,slot\.y,slot\.width,slot\.height\)/);
+ assert.match(game,/mainMenuPaint\.context\.putImageData\(portrait,MENU_POSE_RECT\.x,MENU_POSE_RECT\.y\)/);
  assert.doesNotMatch(game,/chooseMenuSkin\(SKINS,previousMenuSkin\)/);
  assert.match(game,/chooseNextMenuPortrait\(\);renderMenu\(\)/);
  assert.match(game,/selectedSkin=DEFAULT_SKIN/);
