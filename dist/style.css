@@ -283,7 +283,9 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
 .mode-card-picture{width:98%;height:46%;display:flex;align-items:center;justify-content:center;flex:none;
  background:#e4eff440;border:2px dashed #6c9bb455;border-radius:15px;overflow:hidden}
 .mode-card-picture canvas{display:block;object-fit:contain;width:100%;height:100%;pointer-events:none}
+.game-mode-carousel-card.is-selected .mode-card-picture canvas{animation:mode-card-idle 3s ease-in-out infinite}
 .game-mode-carousel-card.is-selected .mode-card-floating canvas{animation:mode-mine-float 2.4s ease-in-out infinite}
+@keyframes mode-card-idle{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 @keyframes mode-mine-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 .mode-card-description{font-size:clamp(10px,1.75cqw,17px);font-weight:700;text-align:center;line-height:1.22;
  color:#3a617e;margin:3% 2% 0;flex:1;display:flex;align-items:center;justify-content:center}
@@ -324,4 +326,4 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
  .game-mode-carousel-confirm{top:84%;height:11%}
  .game-mode-carousel-back{bottom:2.5%}
 }
-@media(prefers-reduced-motion:reduce){.game-mode-carousel-card.is-selected .mode-card-floating canvas{animation:none}}
+@media(prefers-reduced-motion:reduce){.game-mode-carousel-card.is-selected .mode-card-picture canvas{animation:none}}
