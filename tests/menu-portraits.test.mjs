@@ -65,10 +65,10 @@ test('new menu portraits project uploaded material onto original gun-holding pos
  const rgba=(px,py)=>[...painted.slice(((py-y)*width+px-x)*4,((py-y)*width+px-x)*4+4)];
  assert.equal(titleFigureZone(405,181),'head');
  assert.equal(titleFigureZone(405,145),'head');
- assert.equal(titleFigureZone(403,224),null,'face and body masks must not overlap lower edge');
+ assert.equal(titleFigureZone(403,224),'torso','the torso begins immediately beneath the head');
  assert.equal(titleFigureZone(400,245),'torso');
  assert.equal(titleFigureZone(357,280),'leftArm');
- assert.equal(titleFigureZone(434,248),'torso');
+ assert.equal(titleFigureZone(434,248),'rightArm');
  assert.ok(rgba(405,181)[0]>200&&rgba(405,181)[1]<40,'reference head center is fully textured');
  assert.ok(rgba(405,145)[0]>200&&rgba(405,145)[1]<40,'upper head stays textured');
  assert.ok(rgba(400,245)[0]>200&&rgba(400,245)[2]<50,'reference body texture is used');
