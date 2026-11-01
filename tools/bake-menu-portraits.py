@@ -99,8 +99,8 @@ def acceptable(r,g,b,a,area):
  # hand-authored exact-pose polygons protect the surrounding notebook art.
  # Navy outlines, gun metal, dark ink and the red burst remain original.
  if a<45 or r<74 or g<92 or b<108:return False
- if area=='head':return b>=r-8 and g>=r-12
- return b>=r and g>=r-9
+ if area=='head':return b>=r-15 and g>=r-20
+ return b>=r-22 and g>=r-22
 def main(dist):
  master=Image.open(dist/'assets/Graphics/MMN_MainMenu/MMN_MainMenu_1.png').convert('RGBA')
  if master.size!=(1024,1024):raise RuntimeError('Unexpected original title sheet size')
