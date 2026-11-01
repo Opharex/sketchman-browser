@@ -39,12 +39,15 @@ test('default portrait preserves pixel-perfect main menu source, every skin chan
  assert.deepEqual(raw,original,'original art must be immutable');
 });
 
-test('title portrait is composed onto existing native menu art before rendering, and weapon/skin selection is unaffected',()=>{
+test('the title uses real uploaded portrait files instead of procedural gameplay recolors',()=>{
  const game=fs.readFileSync(new URL('../dist/game.js',import.meta.url),'utf8');
- assert.match(game,/mainMenuPaint=\{canvas,context:c,tiles,active:null,heroOriginal,heroVariants:new Map\(\)\}/);
+ assert.match(game,/const menuPortraitsReady=preloadMenuPortraits\(\)/);
+ assert.match(game,/menuPortraitImages=await menuPortraitsReady/);
+ assert.match(game,/eraseLegacyTitleFigure\(oldHero\.data/);
+ assert.match(game,/const id=choosePortrait\(previousMenuPortrait\)/);
+ assert.match(game,/paint\.context\.drawImage\(art,slot\.x,slot\.y,slot\.width,slot\.height\)/);
+ assert.doesNotMatch(game,/chooseMenuSkin\(SKINS,previousMenuSkin\)/);
  assert.match(game,/chooseNextMenuPortrait\(\);renderMenu\(\)/);
- assert.match(game,/mainMenuPaint\.context\.putImageData\(portrait,MENU_HERO_REGION\.x,MENU_HERO_REGION\.y\)/);
- assert.match(game,/const skinId=chooseMenuSkin\(SKINS,previousMenuSkin\)/);
  assert.match(game,/selectedSkin=DEFAULT_SKIN/);
  assert.match(game,/function equipSkin\(id\)/);
 });

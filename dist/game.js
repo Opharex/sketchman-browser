@@ -18,7 +18,7 @@ import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
 import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites} from './skins.js?v=nine-skins-01';
-import {MENU_HERO_REGION,chooseMenuSkin,recolorMenuHeroPixels} from './menu-skin.js';
+import {MENU_PORTRAIT_IDS,MENU_PORTRAIT_ERASE,choosePortrait,preloadMenuPortraits,eraseLegacyTitleFigure,portraitPlacement} from './menu-portraits.js';
 import {isAtlasSkin,thumbnailUrl,skinThumbnail,preloadSkinThumbnails,ensureSkinAtlas,releaseInactiveAtlases,getAtlasFrame,validateSkinMetadata} from './skin-atlas.js?v=obsidian-material-03';
 import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=magnet-pull-05';
 import {COIN_BOOST_DURATION} from './coin-system.js';
@@ -111,7 +111,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'MODE CAROUSEL POLISH';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'CUSTOM MENU PORTRAITS';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -131,7 +131,7 @@ const MAIN_MENU_ART_RECTS={
  Tutorial:[302,511,256,69], Options:[582,508,272,73], Controls:[6,508,272,73], Skins:[6,435,272,73]
 };
 let hoveredMainMenuButton=null,mainMenuPaint=null,controlsArt=null;
-let previousMenuSkin=null;
+let previousMenuPortrait=null,menuPortraitImages=new Map();
 function getControlsArt(){
  if(controlsArt)return controlsArt;const src=assets.IMM_MainMenu_01;if(!src)return null;
  // Reuse the right-hand button at its native proportions, rather than flattening Shop.
@@ -194,23 +194,28 @@ function getMainMenuPaint(){
  const skinsTile={rect:[sx,sy,sw,sh]};
  for(const mode of ['dark','light']){art.c.putImageData(art[mode],0,0);art.c.drawImage(skinsLabel,(sw-skinsLabel.width*skinsScale)/2,(sh-skinsLabel.height*skinsScale)/2,skinsLabel.width*skinsScale,skinsLabel.height*skinsScale);skinsTile[mode]=art.c.getImageData(0,0,sw,sh);}
  tiles.Skins=skinsTile;c.putImageData(skinsTile.dark,sx,sy);
- const {x:heroX,y:heroY,width:heroW,height:heroH}=MENU_HERO_REGION;
- const heroOriginal=c.getImageData(heroX,heroY,heroW,heroH);
- mainMenuPaint={canvas,context:c,tiles,active:null,heroOriginal,heroVariants:new Map()};
+ // Erase the original figure and gun from the title's baked-in artwork once,
+ // before composing user-supplied transparent illustrations.
+ const {x:heroX,y:heroY,width:heroW,height:heroH}=MENU_PORTRAIT_ERASE;
+ const oldHero=c.getImageData(heroX,heroY,heroW,heroH);
+ const clean=new ImageData(eraseLegacyTitleFigure(oldHero.data,heroW,heroH,heroX,heroY),heroW,heroH);
+ c.putImageData(clean,heroX,heroY);
+ mainMenuPaint={canvas,context:c,tiles,active:null,portraitBase:clean};
  return mainMenuPaint;
 }
 function chooseNextMenuPortrait(){
- if(!mainMenuPaint)return;
- const skinId=chooseMenuSkin(SKINS,previousMenuSkin);
- previousMenuSkin=skinId;
- let portrait=mainMenuPaint.heroVariants.get(skinId);
- if(!portrait){
-  const {x,y,width,height}=MENU_HERO_REGION;
-  const pixels=recolorMenuHeroPixels(mainMenuPaint.heroOriginal.data,width,height,skinId,x,y);
-  portrait=new ImageData(pixels,width,height);
-  mainMenuPaint.heroVariants.set(skinId,portrait);
- }
- mainMenuPaint.context.putImageData(portrait,MENU_HERO_REGION.x,MENU_HERO_REGION.y);
+ if(!mainMenuPaint||!menuPortraitImages.size)return;
+ const id=choosePortrait(previousMenuPortrait);
+ previousMenuPortrait=id;
+ const paint=mainMenuPaint;
+ // Restore the cleaned title behind the previous portrait before drawing
+ // another. Cached transparent WebPs retain their real original materials.
+ const {x,y}=MENU_PORTRAIT_ERASE;
+ paint.context.putImageData(paint.portraitBase,x,y);
+ const art=menuPortraitImages.get(id);
+ if(!art)return;
+ const slot=portraitPlacement(art);
+ paint.context.drawImage(art,slot.x,slot.y,slot.width,slot.height);
 }
 function renderMenu(){
  paper();
@@ -846,13 +851,13 @@ function frame(now){const dt=Math.max(0,Math.min((now-last)/1000||0,.1));last=no
  if(state==='playing'&&world){simulationRemainder+=dt;while(simulationRemainder>=1/60-1e-9&&state==='playing'){world.update(1/60);emberTrail.step(world,selectedSkin==='obsidian_ember',1/60,PLAYER_X);tipTime+=1/60;simulationRemainder-=1/60;if(world.dead&&world.deathTime>1.25)finishRun();}}else simulationRemainder=0;
  if(world&&['playing','paused','over'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}else if(state==='game-modes'){modeCarousel.motion.advance(dt);updateModeCarousel();}else if(state==='skins')updateSkinPreview();requestAnimationFrame(frame);
 }
-async function boot(){try{const skinThumbsReady=preloadSkinThumbnails().catch(e=>{console.error('Skin thumbnails failed:',e);return 0;});const bossAudioReady=soundPlayer.preload([BOSS_SHOT_SOUND,BOSS_COCK_SOUND]);let atlasProgress=0,uiProgress=0;const progress=()=>{$('#progress').value=atlasProgress*.7+uiProgress*.3;};$('#loadStatus').textContent='Loading artwork and menu textures';const uiReady=preloadUiImages(UI_IMAGE_URLS,{onProgress:(done,total)=>{uiProgress=done/total*100;progress();}});uiReady.catch(()=>{});warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
+async function boot(){try{const menuPortraitsReady=preloadMenuPortraits();const skinThumbsReady=preloadSkinThumbnails().catch(e=>{console.error('Skin thumbnails failed:',e);return 0;});const bossAudioReady=soundPlayer.preload([BOSS_SHOT_SOUND,BOSS_COCK_SOUND]);let atlasProgress=0,uiProgress=0;const progress=()=>{$('#progress').value=atlasProgress*.7+uiProgress*.3;};$('#loadStatus').textContent='Loading artwork and menu textures';const uiReady=preloadUiImages(UI_IMAGE_URLS,{onProgress:(done,total)=>{uiProgress=done/total*100;progress();}});uiReady.catch(()=>{});warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
  await Promise.all(Array.from({length:2},async()=>{while(queue.length){const sheet=queue.shift();await new Promise((resolve,reject)=>{
   const im=new Image();im.onload=()=>{try{for(const n of sheet.names){const v=sprites[n].v,c=document.createElement('canvas');c.width=v[7];c.height=v[8];const context=c.getContext('2d');if(!context)throw new Error('Graphics memory unavailable');context.drawImage(im,v[1],v[2],v[7],v[8],0,0,v[7],v[8]);assets[n]=c;}loaded++;atlasProgress=loaded/sheets.size*100;progress();resolve();}catch(error){reject(error);}finally{im.onload=null;im.onerror=null;im.removeAttribute('src');}};
   im.onerror=()=>reject(new Error('Missing atlas: '+sheet.atlas));im.src=`assets/Graphics/${sheet.atlas}/${sheet.atlas}_${sheet.index+1}.png`;
  });}}));bossRig=createBossRig(assets.ENM_EnemyBOSS_Idle_01,{trimmed:true});prepareCoinArtwork();prepareShadowSprites(assets,sprites);
  await Promise.all([...new Set([...EFFECT_TEXTURES,'ParExpStar_01','ParCoin01','gamePaper'])].map(n=>new Promise(resolve=>{const im=new Image();im.onload=()=>{assets[n]=im;resolve();};im.onerror=resolve;im.src=n==='gamePaper'?'assets/Graphics/LOC_Locations/SCN_Background.jpg':`assets/Graphics/Particles/${n}.png`;})));// Every UI image (including hover textures and HUD icons) is decoded before handoff.
- uiImages=await uiReady;await bossAudioReady;await skinThumbsReady;
+ uiImages=await uiReady;await bossAudioReady;await skinThumbsReady;menuPortraitImages=await menuPortraitsReady;
  if(isAtlasSkin(selectedSkin))try{await ensureSkinAtlas(selectedSkin);validateSkinMetadata(sprites);}catch(error){console.error('Saved skin atlas unavailable:',error);selectedSkin=DEFAULT_SKIN;}
 
  const menuFont=uiImages.get('assets/Graphics/Fonts/S1_Dialogs22_1.png');setMenuFont(menuFont);prepareMenus();updateControlHint();$('#progress').value=100;$('#loadStatus').textContent='Ready';await intro;$('#loading').remove();menu();last=performance.now();requestAnimationFrame(frame);}catch(e){$('#loadStatus').textContent='Could not load the game. Reload to try again.';console.error(e);}}
