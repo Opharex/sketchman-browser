@@ -19,8 +19,8 @@ import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animati
 import {sceneryTile} from './normal-run.js';
 import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites} from './skins.js?v=nine-skins-01';
 import {isAtlasSkin,thumbnailUrl,skinThumbnail,preloadSkinThumbnails,ensureSkinAtlas,releaseInactiveAtlases,getAtlasFrame,validateSkinMetadata} from './skin-atlas.js?v=obsidian-material-03';
-import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=game-modes-01';
-import {CLASSIC_MODE,BOMB_MODE,GAME_MODES,getGameMode,modeScoreRecord} from './game-modes.js?v=game-modes-01';
+import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=air-mine-mode-02';
+import {CLASSIC_MODE,BOMB_MODE,GAME_MODES,getGameMode,modeScoreRecord} from './game-modes.js?v=air-mine-mode-02';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const BOSS_TEST=new URLSearchParams(location.search).get('bossTest')==='1';
 let bossRig=null;
@@ -108,7 +108,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'GAME MODES + OOPS ALL BOMBS';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'OOPS ALL AIR MINES';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);

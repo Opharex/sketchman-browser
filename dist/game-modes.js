@@ -11,9 +11,9 @@ export const GAME_MODES=Object.freeze([
  }),
  Object.freeze({
   id:BOMB_MODE,name:'OOPS ALL BOMBS',
-  description:'Every obstacle is a bomb. Watch your step!',
-  previewSprites:Object.freeze(['HAZ_Mine_01']),
-  obstacleReplacement:3  // APK standard land-mine, native sound and destruction.
+  description:'Every obstacle is a floating mine. Watch your head!',
+  previewSprites:Object.freeze(['HAZ_AirMine_01']),
+  obstacleReplacement:5  // Original floating air mine with native effects and damage.
  })
 ]);
 const modeIndex=new Map(GAME_MODES.map(mode=>[mode.id,mode]));
@@ -24,20 +24,22 @@ export function gameModeName(id){return getGameMode(id).name;}
  * spawn timing, pattern history, X position and source Y anchor are fixed.
  * For explicit pattern Y, preserve the original centerline, translating
  * only the bottom-aligned hitbox to the replacement hazard's height.
- * For an implicit grounded Y, preserve the ground contact. Native airborne
- * hazards spawned without Y retain their original centerline.
- * No extra entities and no random calls. A bomb is a REAL mine hazard.
+ * Original airborne hazards preserve their centerline. Floating replacements
+ * are lifted where needed to keep their bottom clear of the ground.
+ * No extra entities or random calls; each mine is a REAL air-mine hazard.
  */
-export function substituteHazard(hazard,modeId,hazards,{explicitY=false}={}){
+export function substituteHazard(hazard,modeId,hazards,{explicitY=false,floor=492}={}){
  const mode=getGameMode(modeId);
  if(mode.obstacleReplacement==null)return hazard;
  const target=hazards[mode.obstacleReplacement];
  if(!target)throw new Error('Unknown game-mode hazard '+mode.obstacleReplacement);
  const bottom=hazard.y;
  const center=bottom-hazard.h/2;
- const replacementY=explicitY||hazard.air?center+target.h/2:bottom;
- // Preserve all spawn scheduling and movement fields. Use the actual mine
- // stats (including its explosive destruction group), never a box in disguise.
+ const naturalY=explicitY||hazard.air?center+target.h/2:bottom;
+ // Some original grounded patterns have low centerlines; keep air mines airborne.
+ const replacementY=target.air?Math.min(naturalY,floor-48):naturalY;
+ // Preserve spawn scheduling and movement. Native air-mine stats automatically
+ // select its own collision, damage, sound and explosion group.
  return {
   ...target,type:'hazard',id:target.id,x:hazard.x,y:replacementY,
   age:hazard.age??0,maxHp:target.hp,

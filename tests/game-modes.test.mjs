@@ -8,7 +8,8 @@ const patterns=JSON.parse(fs.readFileSync(new URL('../dist/assets/normal-pattern
 test('Game mode registry is extensible; unknown modes safely fall back to Classic',()=>{
  assert.equal(GAME_MODES.length,2);
  assert.equal(getGameMode('invalid').id,CLASSIC_MODE);
- assert.equal(getGameMode(BOMB_MODE).obstacleReplacement,3);
+ assert.equal(getGameMode(BOMB_MODE).obstacleReplacement,5);
+ assert.deepEqual(getGameMode(BOMB_MODE).previewSprites,['HAZ_AirMine_01']);
  assert.equal(getGameMode(CLASSIC_MODE).obstacleReplacement,null);
 });
 
@@ -24,36 +25,50 @@ test('Classic hazards keep identical original entities and original RNG consumpt
  assert.equal(a.mode.id,CLASSIC_MODE);
 });
 
-test('All hazards become real land mines, preserving one event, X and original center Y',()=>{
+test('All hazards become real floating mines, preserving one event, X and center Y when clear of floor',()=>{
  const w=new World({seed:123,mode:BOMB_MODE});
  const normal=new World({seed:123,mode:CLASSIC_MODE});
  for(const id of [0,1,2,3,4,5,6,7,8,9]){
-  const y=410+HAZARDS[id].h/2;
+  const y=350+HAZARDS[id].h/2;
   w.spawn('hazard',id,1100+id*14,y);
   normal.spawn('hazard',id,1100+id*14,y);
   const bomb=w.entities.at(-1),original=normal.entities.at(-1);
-  assert.equal(bomb.id,3);
+  assert.equal(bomb.id,5);
   assert.equal(bomb.type,'hazard');
-  assert.equal(bomb.sprite,'HAZ_Mine_01');
+  assert.equal(bomb.sprite,'HAZ_AirMine_01');
   assert.equal(bomb.modeBomb,true);
   assert.equal(bomb.sourceObstacleId,id);
   assert.equal(bomb.x,original.x);
   assert.equal(bomb.y-bomb.h/2,original.y-original.h/2);
-  assert.equal(bomb.hp,HAZARDS[3].hp);
-  assert.equal(bomb.damage,HAZARDS[3].damage);
+  assert.equal(bomb.hp,HAZARDS[5].hp);
+  assert.equal(bomb.damage,HAZARDS[5].damage);
  }
  assert.equal(w.entities.length,normal.entities.length);
  assert.equal(w.seed,normal.seed,'Mode switch must consume zero RNG');
 });
 
-test('Ground hazards stay grounded, and implicit airborne hazards preserve their center',()=>{
+test('Ground hazards become airborne and implicit airborne hazards preserve their center',()=>{
  const a=new World({seed:9,mode:CLASSIC_MODE});
  const b=new World({seed:9,mode:BOMB_MODE});
  a.spawn('hazard',0,1100);b.spawn('hazard',0,1100);
  assert.equal(a.entities[0].y,FLOOR);
- assert.equal(b.entities[0].y,FLOOR);
+ assert.equal(b.entities[0].id,5);
+ assert.equal(b.entities[0].sprite,'HAZ_AirMine_01');
+ assert.equal(b.entities[0].y,FLOOR-48);
  a.spawn('hazard',5,1100);b.spawn('hazard',5,1100);
  assert.equal(a.entities[1].y-a.entities[1].h/2,b.entities[1].y-b.entities[1].h/2);
+ assert.equal(a.seed,b.seed);
+});
+
+test('Low pattern centerlines lift air mines above floor without changing RNG',()=>{
+ const a=new World({seed:92,mode:CLASSIC_MODE});
+ const b=new World({seed:92,mode:BOMB_MODE});
+ const cy=465,groundY=cy+HAZARDS[3].h/2;
+ a.spawn('hazard',3,1160,groundY);
+ b.spawn('hazard',3,1160,groundY);
+ assert.equal(a.entities[0].y-a.entities[0].h/2,cy);
+ assert.equal(b.entities[0].y,FLOOR-48);
+ assert.equal(b.entities[0].id,5);
  assert.equal(a.seed,b.seed);
 });
 
@@ -62,8 +77,8 @@ test('Actual pattern spawn with reversed spikes is still a bomb, never a spikes 
  const b=new World({seed:22,mode:CLASSIC_MODE,patterns});
  const event={type:0,args:[0,140,0,430,0,0,2]};
  a.spawnPattern(event,1.1);b.spawnPattern(event,1.1);
- assert.equal(a.entities[0].id,3);
- assert.equal(a.entities[0].sprite,'HAZ_Mine_01');
+ assert.equal(a.entities[0].id,5);
+ assert.equal(a.entities[0].sprite,'HAZ_AirMine_01');
  assert.equal(b.entities[0].sprite,'HAZ_FlatSpikesReverse_01');
  assert.equal(a.entities[0].moveSpeed,b.entities[0].moveSpeed);
  assert.equal(a.entities[0].verticalSpeed,b.entities[0].verticalSpeed);
@@ -94,9 +109,10 @@ test('Deterministic 100 second APK pattern event stream has identical spawn time
   assert.equal(y.at,x.at,'Spawn timing mismatch at '+i);
   assert.equal(y.kind,x.kind,'Non-obstacle spawn type mismatch at '+i);
   assert.equal(y.x,x.x,'Spawn horizontal position mismatch at '+i);
-  assert.equal(y.cy,x.cy,'Spawn vertical center mismatch at '+i);
+  if(x.kind==='hazard')assert.equal(y.cy,Math.min(x.cy,FLOOR-48-HAZARDS[5].h/2),'Air-mine center mismatch at '+i);
+  else assert.equal(y.cy,x.cy,'Non-hazard center mismatch at '+i);
   if(x.kind==='hazard'){
-   assert.equal(y.id,3);
+   assert.equal(y.id,5);
    assert.equal(y.modeBomb,true);
   }else{
    assert.equal(y.id,x.id);
@@ -116,16 +132,16 @@ test('Tutorial remains unchanged even when bombs mode is selected',()=>{
  assert.equal(w.entities[0].sprite,'HAZ_Crate_01');
 });
 
-test('Mine collision / destruction retains native mine effects and sound identifiers',()=>{
+test('Floating mine collision / destruction retains native air-mine effects and sound identifiers',()=>{
  const b=new World({seed:4,mode:BOMB_MODE,onEvent:()=>{}});
  b.spawn('hazard',0,550,450);
  const e=b.entities[0];
- assert.equal(e.id,3);
+ assert.equal(e.id,5);
  b.destroy(e,true);
  assert.equal(e.dead,true);
  assert.equal(b.counts.hazardDestroy,1);
  assert.equal(b.counts.DestroyedStaticHazard,1);
- assert.ok(b.particles.some(p=>p.group==='G_LandMineDest'));
+ assert.ok(b.particles.some(p=>p.group==='G_AirMineDest'));
 });
 
 test('Alternate scores can be recorded without modifying classic scores',()=>{
