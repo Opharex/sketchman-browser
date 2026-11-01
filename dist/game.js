@@ -193,8 +193,8 @@ function getMainMenuPaint(){
  const skinsTile={rect:[sx,sy,sw,sh]};
  for(const mode of ['dark','light']){art.c.putImageData(art[mode],0,0);art.c.drawImage(skinsLabel,(sw-skinsLabel.width*skinsScale)/2,(sh-skinsLabel.height*skinsScale)/2,skinsLabel.width*skinsScale,skinsLabel.height*skinsScale);skinsTile[mode]=art.c.getImageData(0,0,sw,sh);}
  tiles.Skins=skinsTile;c.putImageData(skinsTile.dark,sx,sy);
- const {x,y,width,height}=MENU_HERO_REGION;
- const heroOriginal=c.getImageData(x,y,width,height);
+ const {x:heroX,y:heroY,width:heroW,height:heroH}=MENU_HERO_REGION;
+ const heroOriginal=c.getImageData(heroX,heroY,heroW,heroH);
  mainMenuPaint={canvas,context:c,tiles,active:null,heroOriginal,heroVariants:new Map()};
  return mainMenuPaint;
 }
