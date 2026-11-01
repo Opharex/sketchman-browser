@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {SKINS} from '../dist/skins.js';
-import {MENU_HERO_REGION,chooseMenuSkin,recolorMenuHeroPixels} from '../dist/menu-skin.js';
+import {MENU_HERO_REGION,MENU_SKIN_PALETTES,chooseMenuSkin,recolorMenuHeroPixels} from '../dist/menu-skin.js';
 
 test('main menu includes every existing playable skin and never repeats the last portrait',()=>{
  assert.equal(SKINS.length,11);
@@ -47,4 +47,39 @@ test('title portrait is composed onto existing native menu art before rendering,
  assert.match(game,/const skinId=chooseMenuSkin\(SKINS,previousMenuSkin\)/);
  assert.match(game,/selectedSkin=DEFAULT_SKIN/);
  assert.match(game,/function equipSkin\(id\)/);
+});
+
+test('menu skin color palettes exactly match the real gameplay atlas builder',()=>{
+ const builder=fs.readFileSync(new URL('../tools/build-skins.py',import.meta.url),'utf8');
+ for(const [id,colors] of Object.entries(MENU_SKIN_PALETTES)){
+  if(id==='shadow')continue;
+  const tuple=builder.match(new RegExp('^\\s*"'+id+'": \\(([^)]*)\\)', 'm'));
+  assert.ok(tuple,id+' gameplay material palette exists');
+  const expected=[...tuple[1].matchAll(/#[0-9a-f]{6}/gi)].map(x=>x[0]);
+  assert.deepEqual(colors,expected,id+' uses the EXACT approved gameplay colors');
+ }
+});
+test('Crimson Bolt title retains its ivory-white face and deep ruby-red body',()=>{
+ const {width,height,x,y}=MENU_HERO_REGION;
+ const raw=new Uint8ClampedArray(width*height*4);
+ raw.fill(255);
+ for(let i=0;i<raw.length;i+=4){raw[i]=188;raw[i+1]=214;raw[i+2]=239;}
+ const result=recolorMenuHeroPixels(raw,width,height,'crimson_bolt');
+ const at=(gx,gy)=>[...result.slice(((gy-y)*width+gx-x)*4,((gy-y)*width+gx-x)*4+3)];
+ const face=at(405,143),body=at(405,257),background=at(590,290);
+ assert.ok(face.every(v=>v>205),'Head must remain ivory-white, not red');
+ assert.ok(body[0]>body[1]*3&&body[0]>body[2]*2,'Body must be saturated ruby red');
+ assert.deepEqual(background,[188,214,239],'Non-character menu details may not be changed');
+});
+test('all skin variants preserve alpha and leave outside silhouette untouched',()=>{
+ const {width,height,x,y}=MENU_HERO_REGION;
+ const raw=new Uint8ClampedArray(width*height*4);
+ for(let i=0;i<raw.length;i+=4){raw[i]=178;raw[i+1]=207;raw[i+2]=230;raw[i+3]=i%12===0?0:255;}
+ for(const id of SKINS.map(s=>s.id)){
+  const processed=recolorMenuHeroPixels(raw,width,height,id);
+  assert.equal(processed.length,raw.length);
+  for(let i=3;i<raw.length;i+=4)assert.equal(processed[i],raw[i],id+' cannot change silhouette');
+  const o=((280-y)*width+590-x)*4;
+  assert.deepEqual([...processed.slice(o,o+4)],[...raw.slice(o,o+4)],id+' cannot tint logo');
+ }
 });
