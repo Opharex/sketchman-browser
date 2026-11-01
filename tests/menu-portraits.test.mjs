@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {MENU_PORTRAIT_IDS,portraitUrl,choosePortrait,portraitPlacement,
  MENU_PORTRAIT_ERASE,eraseLegacyTitleFigure} from '../dist/menu-portraits.js';
+import {MENU_POSE_RECT,titleFigureZone,paintTitlePosePixels} from '../dist/menu-pose-texture.js';
 
 test('nine actual supplied character portraits are valid nonempty WebP images',()=>{
  assert.equal(MENU_PORTRAIT_IDS.length,9);
@@ -51,5 +52,31 @@ test('title menu randomization does not change gameplay skins, modes or save dat
  assert.match(src,/mode:isTutorial\?CLASSIC_MODE:activeGameMode/);
  assert.match(src,/const SKIN_KEY='sketchman-browser-skin-v1'/);
  assert.match(src,/function equipSkin\(id\)/);
- assert.match(src,/CUSTOM MENU PORTRAITS/);
+ assert.match(src,/MENU PORTRAIT SKINS/);
+});
+
+test('new menu portraits project uploaded material onto original gun-holding pose',()=>{
+ const {x,y,width,height}=MENU_POSE_RECT;
+ const original=new Uint8ClampedArray(width*height*4);
+ for(let i=0;i<original.length;i+=4)original.set([180,205,238,255],i);
+ const refWidth=220,refHeight=260,ref=new Uint8ClampedArray(refWidth*refHeight*4);
+ for(let i=0;i<ref.length;i+=4)ref.set([225,23,37,255],i);
+ const painted=paintTitlePosePixels(original,width,height,{data:ref,width:refWidth,height:refHeight});
+ const rgba=(px,py)=>[...painted.slice(((py-y)*width+px-x)*4,((py-y)*width+px-x)*4+4)];
+ assert.equal(titleFigureZone(405,145),'head');
+ assert.equal(titleFigureZone(400,245),'body');
+ assert.ok(rgba(405,145)[0]>200&&rgba(405,145)[1]<40,'reference head texture is used');
+ assert.ok(rgba(400,245)[0]>200&&rgba(400,245)[2]<50,'reference body texture is used');
+ assert.deepEqual(rgba(570,110),[180,205,238,255],'gun and title surroundings are untouched');
+ assert.deepEqual([...original.slice(0,4)],[180,205,238,255],'source art stays immutable');
+});
+test('menu pre-bakes every reference into the fixed title pose rather than inserting running figures',()=>{
+ const src=fs.readFileSync(new URL('../dist/game.js',import.meta.url),'utf8');
+ assert.match(src,/function prepareTitlePoseVariants\(\)/);
+ assert.match(src,/paintTitlePosePixels\(paint\.poseOriginal\.data,width,height,sample,x,y\)/);
+ assert.match(src,/paint\.poseVariants\.set\(id,new ImageData\(pixels,width,height\)\)/);
+ assert.match(src,/prepareOptionsPanels\(\);getMainMenuPaint\(\);prepareTitlePoseVariants\(\)/);
+ assert.match(src,/const portrait=mainMenuPaint\.poseVariants\.get\(id\)/);
+ assert.doesNotMatch(src,/paint\.context\.drawImage\(art,slot\.x/);
+ assert.doesNotMatch(src,/eraseLegacyTitleFigure\(oldHero\.data/);
 });

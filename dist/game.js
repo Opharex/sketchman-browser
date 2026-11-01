@@ -18,7 +18,8 @@ import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
 import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites} from './skins.js?v=nine-skins-01';
-import {MENU_PORTRAIT_IDS,MENU_PORTRAIT_ERASE,choosePortrait,preloadMenuPortraits,eraseLegacyTitleFigure,portraitPlacement} from './menu-portraits.js';
+import {MENU_PORTRAIT_IDS,choosePortrait,preloadMenuPortraits} from './menu-portraits.js';
+import {MENU_POSE_RECT,paintTitlePosePixels} from './menu-pose-texture.js';
 import {isAtlasSkin,thumbnailUrl,skinThumbnail,preloadSkinThumbnails,ensureSkinAtlas,releaseInactiveAtlases,getAtlasFrame,validateSkinMetadata} from './skin-atlas.js?v=obsidian-material-03';
 import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=magnet-pull-05';
 import {COIN_BOOST_DURATION} from './coin-system.js';
@@ -111,7 +112,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'CUSTOM MENU PORTRAITS';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'MENU PORTRAIT SKINS';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -194,28 +195,35 @@ function getMainMenuPaint(){
  const skinsTile={rect:[sx,sy,sw,sh]};
  for(const mode of ['dark','light']){art.c.putImageData(art[mode],0,0);art.c.drawImage(skinsLabel,(sw-skinsLabel.width*skinsScale)/2,(sh-skinsLabel.height*skinsScale)/2,skinsLabel.width*skinsScale,skinsLabel.height*skinsScale);skinsTile[mode]=art.c.getImageData(0,0,sw,sh);}
  tiles.Skins=skinsTile;c.putImageData(skinsTile.dark,sx,sy);
- // Erase the original figure and gun from the title's baked-in artwork once,
- // before composing user-supplied transparent illustrations.
- const {x:heroX,y:heroY,width:heroW,height:heroH}=MENU_PORTRAIT_ERASE;
- const oldHero=c.getImageData(heroX,heroY,heroW,heroH);
- const clean=new ImageData(eraseLegacyTitleFigure(oldHero.data,heroW,heroH,heroX,heroY),heroW,heroH);
- c.putImageData(clean,heroX,heroY);
- mainMenuPaint={canvas,context:c,tiles,active:null,portraitBase:clean};
+ // Keep the original menu's figure, pistol, muzzle flash, lettering and
+ // rubble in place. Only the figure's paint will receive reference textures.
+ const {x:heroX,y:heroY,width:heroW,height:heroH}=MENU_POSE_RECT;
+ const poseOriginal=c.getImageData(heroX,heroY,heroW,heroH);
+ mainMenuPaint={canvas,context:c,tiles,active:null,poseOriginal,poseVariants:new Map()};
  return mainMenuPaint;
 }
+// Convert all nine reference images into pose-locked, texture-painted title
+// panels during the existing loading screen. No canvas processing on a menu visit.
+function prepareTitlePoseVariants(){
+ const paint=mainMenuPaint;if(!paint||!menuPortraitImages.size)return;
+ const {x,y,width,height}=MENU_POSE_RECT;
+ for(const [id,art] of menuPortraitImages){
+  const sw=art.naturalWidth,sh=art.naturalHeight;
+  const source=document.createElement('canvas');source.width=sw;source.height=sh;
+  const context=source.getContext('2d',{willReadFrequently:true});
+  context.drawImage(art,0,0);
+  const sample=context.getImageData(0,0,sw,sh);
+  const pixels=paintTitlePosePixels(paint.poseOriginal.data,width,height,sample,x,y);
+  paint.poseVariants.set(id,new ImageData(pixels,width,height));
+  source.width=source.height=0;
+ }
+}
 function chooseNextMenuPortrait(){
- if(!mainMenuPaint||!menuPortraitImages.size)return;
+ if(!mainMenuPaint||!mainMenuPaint.poseVariants.size)return;
  const id=choosePortrait(previousMenuPortrait);
  previousMenuPortrait=id;
- const paint=mainMenuPaint;
- // Restore the cleaned title behind the previous portrait before drawing
- // another. Cached transparent WebPs retain their real original materials.
- const {x,y}=MENU_PORTRAIT_ERASE;
- paint.context.putImageData(paint.portraitBase,x,y);
- const art=menuPortraitImages.get(id);
- if(!art)return;
- const slot=portraitPlacement(art);
- paint.context.drawImage(art,slot.x,slot.y,slot.width,slot.height);
+ const portrait=mainMenuPaint.poseVariants.get(id);
+ if(portrait)mainMenuPaint.context.putImageData(portrait,MENU_POSE_RECT.x,MENU_POSE_RECT.y);
 }
 function renderMenu(){
  paper();
@@ -259,7 +267,7 @@ function renderOriginalOptions(force=false){
  ctx.drawImage(optionsPanels[state],220,64);notebook();
 }
 function prepareMenus(){
- prepareOptionsPanels();getMainMenuPaint();for(const mode of GAME_MODES)gameModePreview(mode);versionSplashImage=menuLettering(VERSION_SPLASH);
+ prepareOptionsPanels();getMainMenuPaint();prepareTitlePoseVariants();for(const mode of GAME_MODES)gameModePreview(mode);versionSplashImage=menuLettering(VERSION_SPLASH);
  for(const label of ['CLASSIC','OOPS ALL BOMBS','Choose a Mode','Select Mode','More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow',...SKINS.map(s=>s.name)])menuLettering(label);
  for(const code of [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c=>'Key'+c).concat([...'0123456789'].flatMap(c=>['Digit'+c,'Numpad'+c]),['Space','Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Backspace',...Object.values(save.settings.controls)]))menuLettering(keyLabel(code));
  // These source layers are now retired; the renderer only keeps finished artwork.
