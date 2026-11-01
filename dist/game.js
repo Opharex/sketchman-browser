@@ -5,7 +5,7 @@ import {bossShotPose,bossRigPlacement,bossRigMuzzle,BOSS_SHOT_SOUND,BOSS_COCK_SO
 import {UI_IMAGE_URLS} from './ui-assets.js';
 import {preloadUiImages} from './ui-preload.js';
 import {playLoadingIntro} from './loading-intro.js?v=two-second-cut';
-import {fitViewport,bindTouchControls} from './mobile.js';
+import {fitViewport,bindTouchControls,renderCanvasDimensions} from './mobile.js';
 import {createSoundPlayer} from './sound-player.js?v=boss-rig-sync-01';
 import {DEFAULT_CONTROLS,bindControl,keyLabel} from './controls.js';
 import {setMenuFont,menuLettering} from './menu-lettering.js?v=preloaded-menus';
@@ -47,19 +47,21 @@ const modeCarousel={index:0,motion:null,cards:[],track:null,prev:null,next:null,
 let activeGameMode=CLASSIC_MODE;
 let pointerJump=new Set(),pointerFire=new Set(),keys=new Set();
 let disposeTouchControls=()=>{};
-let cameraPadding=0;
-// Wide devices show more world; never scale the sprites non-uniformly.
+let cameraPadding=0,worldViewportWidth=WIDTH;
+// Expand the world in landscape without stretching actors or exceeding mobile pixel budget.
 function resizeViewport(){
  fitViewport(document.documentElement);
  const rect=$('#stage').getBoundingClientRect();
- const wide=matchMedia('(orientation:landscape) and (pointer:coarse)').matches||
+ const mobile=matchMedia('(pointer:coarse)').matches;
+ const widescreen=(mobile&&matchMedia('(orientation:landscape)').matches)||
   !!document.fullscreenElement||$('#app').classList.contains('app-expanded');
- const width=wide&&rect.width/Math.max(1,rect.height)>WIDTH/HEIGHT
-  ?Math.min(1920,Math.max(WIDTH,Math.round(HEIGHT*rect.width/rect.height))):WIDTH;
- if(canvas.width!==width||canvas.height!==HEIGHT){canvas.width=width;canvas.height=HEIGHT;}
- cameraPadding=(width-WIDTH)/2;
- ctx.setTransform(1,0,0,1,cameraPadding,0);
- $('#stage').style.setProperty('--game-ui-percent',(WIDTH/width*100)+'%');
+ const view=renderCanvasDimensions(rect.width,rect.height,{widescreen,mobile});
+ if(canvas.width!==view.pixelWidth||canvas.height!==view.pixelHeight){
+  canvas.width=view.pixelWidth;canvas.height=view.pixelHeight;
+ }
+ worldViewportWidth=view.logicalWidth;cameraPadding=view.padding;
+ ctx.setTransform(view.scale,0,0,view.scale,cameraPadding*view.scale,0);
+ $('#stage').style.setProperty('--game-ui-percent',(WIDTH/worldViewportWidth*100)+'%');
 }
 resizeViewport();window.addEventListener('resize',resizeViewport);
 window.visualViewport?.addEventListener('resize',resizeViewport);
@@ -120,8 +122,8 @@ function sprite(n,x,y,scale=1,flip=false,alpha=1){const im=assets[n];if(!im)retu
 function original(n,x,y,w,h){const s=sprites[n];if(!s)return;const v=s.v;img(n,x+v[11]*(w/v[5]),y+v[12]*(h/v[6]),v[7]*(w/v[5]),v[8]*(h/v[6]));}
 function text(s,x,y,size=24,color='#1b4d79',align='left'){ctx.fillStyle=color;ctx.font=`italic bold ${size}px 'Trebuchet MS',sans-serif`;ctx.textAlign=align;ctx.fillText(s,x,y);}
 function paper(){const left=-cameraPadding,right=WIDTH+cameraPadding;
- ctx.fillStyle='#efefdd';ctx.fillRect(left,0,canvas.width,HEIGHT);
- if(assets.IMM_MenuBack_01)img('IMM_MenuBack_01',left,0,canvas.width,HEIGHT);
+ ctx.fillStyle='#efefdd';ctx.fillRect(left,0,worldViewportWidth,HEIGHT);
+ if(assets.IMM_MenuBack_01)img('IMM_MenuBack_01',left,0,worldViewportWidth,HEIGHT);
  else{ctx.strokeStyle='#8ab5bb28';ctx.lineWidth=.6;ctx.beginPath();
  for(let x=left;x<right;x+=18){ctx.moveTo(x,0);ctx.lineTo(x,HEIGHT);}
  for(let y=0;y<HEIGHT;y+=18){ctx.moveTo(left,y);ctx.lineTo(right,y);}ctx.stroke();}
@@ -136,7 +138,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
  ctx.fillText(label,x+(width-m.actualBoundingBoxLeft-m.actualBoundingBoxRight)/2+m.actualBoundingBoxLeft,y+(height+m.actualBoundingBoxAscent-m.actualBoundingBoxDescent)/2);ctx.restore();
 }
 function notebook(){const left=-cameraPadding,right=WIDTH+cameraPadding;
- img('SCN_NoteBookTop_01',left,0,canvas.width,20);img('SCN_NoteBookBottom_01',left,620,canvas.width,20);
+ img('SCN_NoteBookTop_01',left,0,worldViewportWidth,20);img('SCN_NoteBookBottom_01',left,620,worldViewportWidth,20);
  img('SCN_NoteBookLeft_01',left,0,18,640);img('SCN_NoteBookRight_01',right-16,0,16,640);
 }
 // Change this unique splash phrase on every published gameplay update.
@@ -371,7 +373,7 @@ function renderBoss(w){const b=w.boss||w.bossDeath;if(!b)return;const dying=!!w.
 }
 function renderWorld(){
  const w=world;
- if(assets.gamePaper)ctx.drawImage(assets.gamePaper,-cameraPadding,0,canvas.width,HEIGHT);else paper();
+ if(assets.gamePaper)ctx.drawImage(assets.gamePaper,-cameraPadding,0,worldViewportWidth,HEIGHT);else paper();
  // Exact original scenery sequence, parallax, cropped tile offsets, and rear/front ground layers.
  const start=Math.floor((w.backgroundScroll-768-cameraPadding)/1024),end=Math.ceil((w.backgroundScroll+1220+cameraPadding)/1024);
  for(let i=start;i<=end;i++){if(i<0)continue;drawFrame(sceneryTile(i),i*1024-w.backgroundScroll+256,218,2);}
@@ -427,7 +429,7 @@ function renderWorld(){
  ctx.restore();
  // Foreground ink is in front of feet, matching the APK's layer order.
  off=w.foregroundScroll%1024;for(let x=-off-1024;x<WIDTH+cameraPadding;x+=1024)original('SCN_FrontFloor_01',x,482,1024,55);
- if(w.flash>0){ctx.fillStyle=`rgba(187,46,35,${w.flash*1.4})`;ctx.fillRect(-cameraPadding,0,canvas.width,HEIGHT);}
+ if(w.flash>0){ctx.fillStyle=`rgba(187,46,35,${w.flash*1.4})`;ctx.fillRect(-cameraPadding,0,worldViewportWidth,HEIGHT);}
  coinNumber(fmt(w.coins),100,52,88,34,25,'#fff');
  if(w.coinBoostTimer>0){const multiplier=w.effects.doubleCoins?4:2;ctx.save();ctx.fillStyle='#fff5d8e8';ctx.strokeStyle='#3c6d4b';ctx.lineWidth=2;ctx.fillRect(205,36,170,37);ctx.strokeRect(205,36,170,37);text('COINS x'+multiplier+'  '+Math.ceil(w.coinBoostTimer)+'s',215,61,18,'#266341');ctx.restore();}
  ctx.save();ctx.beginPath();ctx.rect(350,536,264*w.hp/100,29);ctx.clip();img('HUD_HealthBar_01',350,536,264,29);ctx.restore();
@@ -906,7 +908,7 @@ function frame(now){const dt=Math.max(0,Math.min((now-last)/1000||0,.1));last=no
   if(!perfStart)perfStart=now;
   if(now-perfStart>=1000){perfMonitor.textContent=Math.round(perfFrameCount*1000/(now-perfStart))+
    ' FPS · worst '+perfWorst.toFixed(1)+' ms · '+canvas.width+'×'+canvas.height+
-   ' · '+Math.round($('#frame').clientWidth)+'×'+Math.round($('#frame').clientHeight);
+   ' px · '+worldViewportWidth+' world · '+Math.round($('#frame').clientWidth)+'×'+Math.round($('#frame').clientHeight);
    perfFrameCount=0;perfWorst=0;perfStart=now;}}
  requestAnimationFrame(frame);
 }

@@ -1,4 +1,15 @@
 // Safari's visible viewport changes when its address bar or orientation changes.
+export function renderCanvasDimensions(cssWidth,cssHeight,{widescreen=false,mobile=false}={}){
+ const baseWidth=960,baseHeight=640,ratio=Math.max(1,cssWidth)/Math.max(1,cssHeight);
+ const logicalWidth=widescreen&&ratio>1.5
+  ?Math.min(1920,Math.max(baseWidth,Math.round(baseHeight*ratio))):baseWidth;
+ // Widescreen displays more world, but limits mobile canvas pixel workload.
+ const scale=mobile&&widescreen
+  ?Math.min(1,Math.sqrt((baseWidth*baseHeight*1.1)/(logicalWidth*baseHeight))):1;
+ return {logicalWidth,pixelWidth:Math.max(1,Math.round(logicalWidth*scale)),
+  pixelHeight:Math.max(1,Math.round(baseHeight*scale)),
+  scale,padding:(logicalWidth-baseWidth)/2};
+}
 export function fitViewport(root,view=window){
  const viewport=view.visualViewport;
  const width=Math.max(1,Math.round(viewport?.width||view.innerWidth));

@@ -219,7 +219,7 @@ test('Mode carousel is card-based, retains gameplay transition, and uses actual 
  assert.match(game,/track\.addEventListener\('pointerdown'/);
  assert.match(game,/track\.addEventListener\('pointermove'/);
  assert.match(game,/track\.addEventListener\('pointerup'/);
- assert.match(game,/modeCarousel\.motion\.advance\(dt\)/);
+ assert.match(game,/modeCarousel\.motion\.advance\(uiDt\)/);
  assert.match(game,/\['ArrowLeft','ArrowRight','KeyA','KeyD'\]/);
  assert.match(game,/k==='Enter'.*confirmGameMode/);
  assert.match(game,/activeGameMode=mode.id;\s*playSelect\(\)/);
