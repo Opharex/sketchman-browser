@@ -115,7 +115,18 @@ export class World{
  if(this.bossDeath){this.bossDeath.deathTime+=dt;this.bossDeath.x-=dt*180;if(this.bossDeath.deathTime>.7)this.bossDeath=null;}
  for(const e of this.entities){e.age+=dt;if(e.dying){e.x-=(e.moveSpeed??this.speed)*dt;e.deathTime+=dt;e.y=Math.min(FLOOR,e.y+120*dt);if(e.deathTime>.5)e.dead=true;continue;}if(e.jetMotion)advanceJet(e,dt);else{if(e.verticalSpeed)e.y+=e.verticalSpeed*dt;e.x-=(e.moveSpeed??this.speed)*dt;}
 
- if(e.type==='enemy'){if(e.id===0){if(!this.director)e.x-=dt*65;if(e.x<PLAYER_X+175&&!e.attacking){e.attacking=true;e.attackStart=e.age;}}else{if(!e.jetMotion)e.y+=Math.sin(e.age*3)*dt*28;e.shotTime=Math.max(0,e.shotTime-dt);if(jetCanFire(e))e.shoot-=dt;if(jetCanFire(e)&&e.shoot<=0){e.shotTime=.4;e.facingRight=PLAYER_X>e.x;e.shoot=e.shotInterval||2.5;e.windup=.2;}if(e.windup!=null){if(!jetCanFire(e)){delete e.windup;}else{e.windup-=dt;if(e.windup<=0){const right=e.facingRight??PLAYER_X>e.x;const angle=Math.atan2(this.y-93-(e.y-50),PLAYER_X-e.x);this.enemyBullets.push({x:e.x+(right?25:-25),y:e.y-50,vx:Math.cos(angle)*340,vy:Math.sin(angle)*340,life:4,w:18,h:12,damage:5,sprite:'BUL_HeliBullet_01'});delete e.windup;}}}}}if(e.type==='coin'&&this.effects.magnet&&Math.abs(e.x-PLAYER_X)<240){e.x+=(PLAYER_X-e.x)*dt*8;e.y+=(this.y-55-e.y)*dt*8;}
+ if(e.type==='enemy'){if(e.id===0){if(!this.director)e.x-=dt*65;if(e.x<PLAYER_X+175&&!e.attacking){e.attacking=true;e.attackStart=e.age;}}else{if(!e.jetMotion)e.y+=Math.sin(e.age*3)*dt*28;e.shotTime=Math.max(0,e.shotTime-dt);if(jetCanFire(e))e.shoot-=dt;if(jetCanFire(e)&&e.shoot<=0){e.shotTime=.4;e.facingRight=PLAYER_X>e.x;e.shoot=e.shotInterval||2.5;e.windup=.2;}if(e.windup!=null){if(!jetCanFire(e)){delete e.windup;}else{e.windup-=dt;if(e.windup<=0){const right=e.facingRight??PLAYER_X>e.x;const angle=Math.atan2(this.y-93-(e.y-50),PLAYER_X-e.x);this.enemyBullets.push({x:e.x+(right?25:-25),y:e.y-50,vx:Math.cos(angle)*340,vy:Math.sin(angle)*340,life:4,w:18,h:12,damage:5,sprite:'BUL_HeliBullet_01'});delete e.windup;}}}}}if(e.type==='coin'&&this.effects.magnet&&(e.magnetized||(e.x>=PLAYER_X-300&&e.x<=PLAYER_X+440))){
+  // Lock onto each coin once it enters range. Without this latch, a fast
+  // pattern can pull it behind the magnet radius and strand it permanently.
+  e.magnetized=true;
+  // A magnetized coin follows the player, not the scrolling world. Undo
+  // the scroll movement already applied above so even 4x-speed patterns
+  // cannot outrun the attraction.
+  e.x+=(e.moveSpeed??this.speed)*dt;
+  const pull=1-Math.exp(-24*dt);
+  e.x+=(PLAYER_X-e.x)*pull;
+  e.y+=(this.y-55-e.y)*pull;
+ }
  const pad=e.type==='coin'?20:8;const overlap=Math.abs(e.x-PLAYER_X)<e.w/2+22+pad&&e.y>this.y-121+pad&&e.y-e.h<this.y-7;
  if(overlap&&!e.dead){if(e.type==='coin'){e.dead=true;this.coins+=coinPayout(e.id,!!this.effects.doubleCoins,this.coinBoostTimer>0);this.event('GotCoin',1,e.id);this.event('coin');}else if(e.type==='health'){e.dead=true;this.hp=Math.min(100,this.hp+(this.effects.fullHealth?100:35));this.event('GotHP');this.event('health');}else if(e.type==='shield'){e.dead=true;this.invincible=Math.max(this.invincible,this.effects.longShield?15:8);this.event('shield');}else if(e.type==='coinBoost'){e.dead=true;this.coinBoostTimer=COIN_BOOST_DURATION;this.event('coinBoost');}else{this.hurt(e.damage);if(e.type==='enemy'){this.destroy(e,false);continue;}if(e.type==='hazard'){this.event('SmashIntoStaticHazard',1,e.id);this.destroy(e,false);}}}
  if(e.x<PLAYER_X-50&&!e.passed&&!e.dead&&e.type==='hazard'){e.passed=true;if(Math.abs(this.y-(e.y-e.h))<125)this.event('NearMissStaticHazard',1,e.id);}}

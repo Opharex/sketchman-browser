@@ -62,3 +62,46 @@ test('tutorial coin spawns always stay original, with no random rare coins',()=>
  for(let i=0;i<50;i++)w.spawn('coin',0,800,320);
  assert.ok(w.entities.every(e=>e.type==='coin'&&e.value===1&&e.id===0));
 });
+
+test('magnet captures fast coins ahead and behind without a trailing orbit at 30, 60 or 120 FPS',()=>{
+ for(const fps of [30,60,120]){
+  const events=[];
+  const w=new World({seed:303,effects:{magnet:true,doubleCoins:true},onEvent:(...e)=>events.push(e)});
+  w.spawnTimer=w.coinTimer=w.nextBoss=1e9;
+  w.coinBoostTimer=COIN_BOOST_DURATION;
+  w.spawn('coin',1,PLAYER_X+430,180);
+  w.spawn('coin',2,PLAYER_X-255,130);
+  for(const e of w.entities)e.moveSpeed=1750; // Faster than the old magnet could pull.
+  const coins=[...w.entities];
+  for(let i=0;i<fps;i++)w.update(1/fps);
+  assert.ok(coins.every(e=>e.magnetized),`Every coin must latch at ${fps} FPS`);
+  assert.equal(w.coins,60,`Green x4 + red x4 must be collected at ${fps} FPS`);
+  assert.equal(w.entities.filter(e=>e.type==='coin').length,0,`No orbiting coins at ${fps} FPS`);
+  assert.equal(events.filter(e=>e[0]==='GotCoin').length,2,'No coin pays twice');
+ }
+});
+test('magnet holds onto a distant coin even after a sudden jump changes the target height',()=>{
+ const w=new World({seed:91,effects:{magnet:true}});
+ w.spawnTimer=w.coinTimer=w.nextBoss=1e9;
+ w.spawn('coin',2,PLAYER_X+395,100);
+ const coin=w.entities.at(-1);coin.moveSpeed=1600;
+ w.jump();
+ w.update(1/60);
+ assert.equal(coin.magnetized,true);
+ // Let the player keep changing elevation while the coin is on its way.
+ for(let i=0;i<9;i++)w.update(1/60);
+ w.jump();
+ for(let i=0;i<120;i++)w.update(1/60);
+ assert.equal(w.coins,10);
+ assert.ok(!w.entities.includes(coin),'The magnet cannot leave a follower behind');
+});
+test('without magnet, distant coins retain the original scroll behavior',()=>{
+ const w=new World({seed:93});
+ w.spawnTimer=w.coinTimer=w.nextBoss=1e9;
+ w.spawn('coin',2,PLAYER_X+400,120);
+ const coin=w.entities.at(-1);coin.moveSpeed=1200;
+ w.update(1/60);
+ assert.equal(coin.magnetized,undefined);
+ assert.ok(Math.abs(coin.x-(PLAYER_X+380))<.01);
+ assert.equal(w.coins,0);
+});
