@@ -19,8 +19,8 @@ import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animati
 import {sceneryTile} from './normal-run.js';
 import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites} from './skins.js?v=nine-skins-01';
 import {isAtlasSkin,thumbnailUrl,skinThumbnail,preloadSkinThumbnails,ensureSkinAtlas,releaseInactiveAtlases,getAtlasFrame,validateSkinMetadata} from './skin-atlas.js?v=obsidian-material-03';
-import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=air-mine-mode-02';
-import {CLASSIC_MODE,BOMB_MODE,GAME_MODES,getGameMode,modeScoreRecord} from './game-modes.js?v=air-mine-mode-02';
+import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=bomb-boss-bounty-01';
+import {CLASSIC_MODE,BOMB_MODE,GAME_MODES,getGameMode,modeScoreRecord} from './game-modes.js?v=bomb-boss-bounty-01';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const BOSS_TEST=new URLSearchParams(location.search).get('bossTest')==='1';
 let bossRig=null;
@@ -108,7 +108,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'OOPS ALL AIR MINES';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'BOMB BOSS BOUNTY 500';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -560,7 +560,7 @@ function missionEligible(m,type,sub){if(m.event!==type)return false;const t=m.te
  if(type==='FireWeapon'){const names={pistol:0,shotgun:1,smg:2,rpg:3,'explosive arrows':4};for(const [word,id]of Object.entries(names))if(t.includes(word)&&sub!==id)return false;}
  if(type==='DestroyedStaticHazard'||type==='SmashIntoStaticHazard'||type==='NearMissStaticHazard'){const names={crate:0,barrel:1,'spike board':2,'land mine':3,saw:4,'air mine':5,'junk pile':6,'death ray':7};for(const [word,id]of Object.entries(names))if(t.includes(word)&&sub!==id)return false;}
  if(type==='KilledMovingEnemy'){if(t.includes('jet')&&sub!==1)return false;if((t.includes('sword')||t.includes('knife'))&&sub!==0)return false;}return true;}
-function event(type,amount=1,sub=0){if(type==='bossShoot')sfx('shoot',1);if(type==='bossCock'&&save.settings.sound)soundPlayer.play(BOSS_COCK_SOUND,save.settings.volume*.55,{rate:sub});if(['shoot','jump','coin','hit','hazardDestroy','hazardCrash','hazardHit','enemyDestroy','explosion','health','shield','revive'].includes(type))sfx(type,sub);if(type==='bossStart'){setMusic('M_0003_Boss.wav');toast('BOSS INCOMING!');}if(type==='bossEnd'){setMusic('M_0002_InGame.wav');toast('Boss defeated! +100 coins');}if(type==='revive')toast('Extra life! Back in action.');if(type==='Died'){resetInput();setMusic('M_0004_GameOverLoop.wav');}
+function event(type,amount=1,sub=0){if(type==='bossShoot')sfx('shoot',1);if(type==='bossCock'&&save.settings.sound)soundPlayer.play(BOSS_COCK_SOUND,save.settings.volume*.55,{rate:sub});if(['shoot','jump','coin','hit','hazardDestroy','hazardCrash','hazardHit','enemyDestroy','explosion','health','shield','revive'].includes(type))sfx(type,sub);if(type==='bossStart'){setMusic('M_0003_Boss.wav');toast('BOSS INCOMING!');}if(type==='bossEnd'){setMusic('M_0002_InGame.wav');toast(`${world?.mode.id===BOMB_MODE?'CHALLENGE CLEARED!':'Boss defeated!'} +${fmt(sub)} coins`);}if(type==='revive')toast('Extra life! Back in action.');if(type==='Died'){resetInput();setMusic('M_0004_GameOverLoop.wav');}
  if(BOSS_TEST||!missions.length||!world)return;if(['GotCoin','GotHP','Ran1Meter','Glide1Meter','BossKill','FireWeapon','KilledMovingEnemy','DestroyedStaticHazard','PlayGame'].includes(type))save.totals[type]=(save.totals[type]||0)+amount;
  for(const m of activeMissions()){if(save.completed.includes(m.id)||pendingMission.includes(m.id)||!missionEligible(m,type,sub))continue;const key=String(m.id);let inc=amount;if(type==='Died')inc=m.target;save.missionProgress[key]=(save.missionProgress[key]||0)+inc;if(save.missionProgress[key]>=m.target){pendingMission.push(m.id);save.completed.push(m.id);save.coins+=m.reward;sfx('complete');toast(`Mission complete!\n${m.text}\n+${fmt(m.reward)} coins`);persist();}}
 }

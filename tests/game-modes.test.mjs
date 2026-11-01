@@ -11,6 +11,8 @@ test('Game mode registry is extensible; unknown modes safely fall back to Classi
  assert.equal(getGameMode(BOMB_MODE).obstacleReplacement,5);
  assert.deepEqual(getGameMode(BOMB_MODE).previewSprites,['HAZ_AirMine_01']);
  assert.equal(getGameMode(CLASSIC_MODE).obstacleReplacement,null);
+ assert.equal(getGameMode(CLASSIC_MODE).bossReward,100);
+ assert.equal(getGameMode(BOMB_MODE).bossReward,500);
 });
 
 test('Classic hazards keep identical original entities and original RNG consumption',()=>{
@@ -142,6 +144,46 @@ test('Floating mine collision / destruction retains native air-mine effects and 
  assert.equal(b.counts.hazardDestroy,1);
  assert.equal(b.counts.DestroyedStaticHazard,1);
  assert.ok(b.particles.some(p=>p.group==='G_AirMineDest'));
+});
+
+
+test('Every Oops All Bombs boss pays 500 total coins, repeatedly, while Classic always pays 100',()=>{
+ for(const [mode,reward] of [[CLASSIC_MODE,100],[BOMB_MODE,500]]){
+  const events=[];
+  const w=new World({seed:33,mode,onEvent:(...args)=>events.push(args)});
+  for(let encounter=0;encounter<3;encounter++){
+   // Merely touching the boss or attacking it before it is vulnerable does not pay.
+   w.boss={x:720,y:412,hp:100,maxHp:100,vulnerable:false};
+   w.damageBoss(999);
+   assert.equal(w.coins,reward*encounter);
+   assert.equal(w.boss.hp,100);
+   w.boss.vulnerable=true;
+   w.damageBoss(999);
+   assert.equal(w.boss,null);
+   assert.equal(w.coins,reward*(encounter+1));
+   assert.equal(w.bossCount,encounter+1);
+   w.damageBoss(999); // Repeated hits after victory cannot pay twice.
+   assert.equal(w.coins,reward*(encounter+1));
+  }
+  assert.deepEqual(events.filter(e=>e[0]==='bonus').map(e=>e[1]),[reward,reward,reward]);
+  assert.deepEqual(events.filter(e=>e[0]==='bossEnd').map(e=>e[2]),[reward,reward,reward]);
+  assert.equal(events.filter(e=>e[0]==='BossKill').length,3);
+ }
+});
+
+test('Tutorial stays on Classic and does not award the challenge bounty',()=>{
+ const w=new World({seed:11,mode:BOMB_MODE,tutorial:true});
+ w.boss={x:720,y:412,hp:1,vulnerable:true};
+ w.damageBoss(10);
+ assert.equal(w.mode.id,CLASSIC_MODE);
+ assert.equal(w.coins,100);
+});
+
+test('Mode-specific boss bounty is displayed and saved using the existing run wallet',()=>{
+ const game=fs.readFileSync(new URL('../dist/game.js',import.meta.url),'utf8');
+ assert.ok(game.includes('CHALLENGE CLEARED!'));
+ assert.ok(game.includes('fmt(sub)'));
+ assert.ok(game.includes('save.coins+=world.coins'));
 });
 
 test('Alternate scores can be recorded without modifying classic scores',()=>{

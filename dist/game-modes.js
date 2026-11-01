@@ -7,13 +7,15 @@ export const GAME_MODES=Object.freeze([
   id:CLASSIC_MODE,name:'CLASSIC',
   description:'The original Sketchman experience.',
   previewSprites:Object.freeze(['HAZ_Crate_01','HAZ_Barrel_01']),
-  obstacleReplacement:null
+  obstacleReplacement:null,
+  bossReward:100 // Preserve the original boss payout.
  }),
  Object.freeze({
   id:BOMB_MODE,name:'OOPS ALL BOMBS',
-  description:'Every obstacle is a floating mine. Watch your head!',
+  description:'Floating mines everywhere. Beat the boss for 500 coins!',
   previewSprites:Object.freeze(['HAZ_AirMine_01']),
-  obstacleReplacement:5  // Original floating air mine with native effects and damage.
+  obstacleReplacement:5, // Original floating air mine with native effects and damage.
+  bossReward:500 // Total per boss defeat; repeatable across encounters.
  })
 ]);
 const modeIndex=new Map(GAME_MODES.map(mode=>[mode.id,mode]));
