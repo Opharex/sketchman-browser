@@ -18,6 +18,7 @@ import {drawParticle} from './particle-renderer.js';
 import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animation.js';
 import {sceneryTile} from './normal-run.js';
 import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites} from './skins.js?v=nine-skins-01';
+import {MENU_HERO_REGION,chooseMenuSkin,recolorMenuHeroPixels} from './menu-skin.js';
 import {isAtlasSkin,thumbnailUrl,skinThumbnail,preloadSkinThumbnails,ensureSkinAtlas,releaseInactiveAtlases,getAtlasFrame,validateSkinMetadata} from './skin-atlas.js?v=obsidian-material-03';
 import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=rare-coins-01';
 import {COIN_BOOST_DURATION} from './coin-system.js';
@@ -109,7 +110,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'FIRE RED COINS';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'RANDOM MENU SKINS';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -129,6 +130,7 @@ const MAIN_MENU_ART_RECTS={
  Tutorial:[302,511,256,69], Options:[582,508,272,73], Controls:[6,508,272,73], Skins:[6,435,272,73]
 };
 let hoveredMainMenuButton=null,mainMenuPaint=null,controlsArt=null;
+let previousMenuSkin=null;
 function getControlsArt(){
  if(controlsArt)return controlsArt;const src=assets.IMM_MainMenu_01;if(!src)return null;
  // Reuse the right-hand button at its native proportions, rather than flattening Shop.
@@ -191,8 +193,23 @@ function getMainMenuPaint(){
  const skinsTile={rect:[sx,sy,sw,sh]};
  for(const mode of ['dark','light']){art.c.putImageData(art[mode],0,0);art.c.drawImage(skinsLabel,(sw-skinsLabel.width*skinsScale)/2,(sh-skinsLabel.height*skinsScale)/2,skinsLabel.width*skinsScale,skinsLabel.height*skinsScale);skinsTile[mode]=art.c.getImageData(0,0,sw,sh);}
  tiles.Skins=skinsTile;c.putImageData(skinsTile.dark,sx,sy);
- mainMenuPaint={canvas,context:c,tiles,active:null};
+ const {x,y,width,height}=MENU_HERO_REGION;
+ const heroOriginal=c.getImageData(x,y,width,height);
+ mainMenuPaint={canvas,context:c,tiles,active:null,heroOriginal,heroVariants:new Map()};
  return mainMenuPaint;
+}
+function chooseNextMenuPortrait(){
+ if(!mainMenuPaint)return;
+ const skinId=chooseMenuSkin(SKINS,previousMenuSkin);
+ previousMenuSkin=skinId;
+ let portrait=mainMenuPaint.heroVariants.get(skinId);
+ if(!portrait){
+  const {x,y,width,height}=MENU_HERO_REGION;
+  const pixels=recolorMenuHeroPixels(mainMenuPaint.heroOriginal.data,width,height,skinId,x,y);
+  portrait=new ImageData(pixels,width,height);
+  mainMenuPaint.heroVariants.set(skinId,portrait);
+ }
+ mainMenuPaint.context.putImageData(portrait,MENU_HERO_REGION.x,MENU_HERO_REGION.y);
 }
 function renderMenu(){
  paper();
@@ -538,7 +555,7 @@ function skinsScreen(){
 
 function menu(){
  if(world&&!ended)finishRun(true);
- state='menu';world=null;muteForPause=false;hoveredMainMenuButton=null;resetInput();renderMenu();
+ state='menu';world=null;muteForPause=false;hoveredMainMenuButton=null;resetInput();chooseNextMenuPortrait();renderMenu();
  ui.innerHTML='';setMusic('M_0001_Menu.mp3');
  for(const [label,fn]of MAIN_MENU_BUTTONS){
   const b=button(label,fn,'hit');b.setAttribute('aria-label',label);
