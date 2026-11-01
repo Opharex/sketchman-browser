@@ -25,6 +25,7 @@ import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,norma
 import {COIN_BOOST_DURATION} from './coin-system.js';
 import {CLASSIC_MODE,BOMB_MODE,GAME_MODES,getGameMode,modeScoreRecord} from './game-modes.js?v=bomb-boss-bounty-01';
 import {missionDisplayRows,scoreboardForMode} from './progress-ui.js';
+import {runPowerupBadges,runPowerupStockLabel} from './run-powerup-hud.js';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const BOSS_TEST=new URLSearchParams(location.search).get('bossTest')==='1';
 let bossRig=null;
@@ -46,6 +47,7 @@ let selectionIndex=0,selectionMotion=new CarouselMotion();
 const modeCarousel={index:0,motion:null,cards:[],track:null,prev:null,next:null,confirm:null,status:null};
 // A mode selection belongs to the run (and survives retry, shop, pause).
 let activeGameMode=CLASSIC_MODE;
+let activeRunPowerups=[];
 let pointerJump=new Set(),pointerFire=new Set(),keys=new Set();
 let disposeTouchControls=()=>{};
 const resizeViewport=()=>fitViewport(document.documentElement);
@@ -113,7 +115,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'MISSIONS + MODE SCORES';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'POWER-UP STOCK HUD';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -724,12 +726,40 @@ function playSelect(initial=save.selected){
 }
 function renderWeaponSelection(){paper();notebook();drawPlayerSelection({index:selectionIndex,position:selectionMotion.position,weapons:WEAPONS,save,t:anim,draw:drawFrame,text,number:coinNumber});}
 
+// Visual inventory, built only when a new run starts. Nothing in this display
+// modifies stock or power-up activation: the game engine stays authoritative.
+function mountRunPowerupHud(){
+ if(tutorial||!activeRunPowerups.length)return;
+ const panel=document.createElement('section');
+ panel.className='run-powerups run-powerups-intro';
+ panel.setAttribute('aria-label','Active run power-ups and remaining charges');
+ const heading=document.createElement('div');heading.className='run-powerups-heading';
+ heading.textContent='ACTIVE POWER-UPS';panel.append(heading);
+ for(const badge of activeRunPowerups){
+  const chip=document.createElement('div');chip.className='run-powerup';
+  chip.dataset.powerupId=badge.id;
+  const img=document.createElement('img');img.src='shop-art/'+badge.icon+'.png';img.alt='';
+  const name=document.createElement('span');name.className='run-powerup-name';name.textContent=badge.name;
+  const remaining=document.createElement('strong');remaining.className='run-powerup-left';
+  remaining.textContent=runPowerupStockLabel(badge);
+  const status=document.createElement('span');status.className='run-powerup-state';
+  status.textContent=badge.id==='life'?'READY':'ON';
+  chip.title=badge.name+' · '+(badge.permanent?'Permanent':remaining.textContent+' after this run started');
+  chip.setAttribute('aria-label',badge.name+' active, '+(badge.permanent?'permanent':remaining.textContent));
+  chip.append(img,name,remaining,status);panel.append(chip);
+ }
+ ui.append(panel);
+ // Starting a run makes each name explicit; after the intro, keep icons and
+ // stock numbers visible without blocking the scenery.
+ setTimeout(()=>{panel.classList.remove('run-powerups-intro');heading.textContent='POWER-UPS';},3800);
+}
 function attachHud(){
  disposeTouchControls();
  ui.innerHTML='';
  const make=(label,n,cls)=>{const el=document.createElement('button');el.className=`hud-button ${cls}`;el.setAttribute('aria-label',label);el.innerHTML=`<img src="${ICON(n)}" alt="">`;ui.append(el);return el;};
  const j=make('Jump indicator','HUD_JumpButton_01','jump'),f=make('Fire indicator','HUD_FireButton_01','fire'),p=make('Pause','HUD_PauseBtn_01','pause');
  p.onclick=()=>{sfx('click');pause();};j.tabIndex=-1;f.tabIndex=-1;
+  mountRunPowerupHud();
  const surface=$('#frame'),indicators=()=>{j.classList.toggle('lit',pointerJump.size>0);f.classList.toggle('lit',pointerFire.size>0);};
  const press=(id,left)=>{if(left){pointerJump.add(id);world.jump();world.jumpHeld=true;}else{pointerFire.add(id);if(world.cooldown<=0)world.shoot();}syncInput();indicators();};
  const releaseId=id=>{pointerJump.delete(id);pointerFire.delete(id);syncInput();indicators();};
@@ -754,13 +784,41 @@ function missionEligible(m,type,sub){if(m.event!==type)return false;const t=m.te
  if(type==='FireWeapon'){const names={pistol:0,shotgun:1,smg:2,rpg:3,'explosive arrows':4};for(const [word,id]of Object.entries(names))if(t.includes(word)&&sub!==id)return false;}
  if(type==='DestroyedStaticHazard'||type==='SmashIntoStaticHazard'||type==='NearMissStaticHazard'){const names={crate:0,barrel:1,'spike board':2,'land mine':3,saw:4,'air mine':5,'junk pile':6,'death ray':7};for(const [word,id]of Object.entries(names))if(t.includes(word)&&sub!==id)return false;}
  if(type==='KilledMovingEnemy'){if(t.includes('jet')&&sub!==1)return false;if((t.includes('sword')||t.includes('knife'))&&sub!==0)return false;}return true;}
-function event(type,amount=1,sub=0){if(type==='bossShoot')sfx('shoot',1);if(type==='bossCock'&&save.settings.sound)soundPlayer.play(BOSS_COCK_SOUND,save.settings.volume*.55,{rate:sub});if(['shoot','jump','coin','hit','hazardDestroy','hazardCrash','hazardHit','enemyDestroy','explosion','health','shield','coinBoost','revive'].includes(type))sfx(type,sub);if(type==='bossStart'){setMusic('M_0003_Boss.wav');toast('BOSS INCOMING!');}if(type==='bossEnd'){setMusic('M_0002_InGame.wav');toast(`${world?.mode.id===BOMB_MODE?'CHALLENGE CLEARED!':'Boss defeated!'} +${fmt(sub)} coins`);}if(type==='coinBoost')toast('COIN FRENZY! x2 for '+COIN_BOOST_DURATION+' seconds'+(world?.effects.doubleCoins?' (x4 with shop bonus!)':''));if(type==='revive')toast('Extra life! Back in action.');if(type==='Died'){resetInput();setMusic('M_0004_GameOverLoop.wav');}
+function event(type,amount=1,sub=0){if(type==='bossShoot')sfx('shoot',1);if(type==='bossCock'&&save.settings.sound)soundPlayer.play(BOSS_COCK_SOUND,save.settings.volume*.55,{rate:sub});if(['shoot','jump','coin','hit','hazardDestroy','hazardCrash','hazardHit','enemyDestroy','explosion','health','shield','coinBoost','revive'].includes(type))sfx(type,sub);if(type==='bossStart'){setMusic('M_0003_Boss.wav');toast('BOSS INCOMING!');}if(type==='bossEnd'){setMusic('M_0002_InGame.wav');toast(`${world?.mode.id===BOMB_MODE?'CHALLENGE CLEARED!':'Boss defeated!'} +${fmt(sub)} coins`);}if(type==='coinBoost')toast('COIN FRENZY! x2 for '+COIN_BOOST_DURATION+' seconds'+(world?.effects.doubleCoins?' (x4 with shop bonus!)':''));if(type==='revive'){toast('Extra life! Back in action.');
+ const lifeChip=ui.querySelector('.run-powerup[data-powerup-id="life"]');
+ if(lifeChip){lifeChip.classList.add('run-powerup-used');
+  const status=lifeChip.querySelector('.run-powerup-state');if(status)status.textContent='USED';}
+}if(type==='Died'){resetInput();setMusic('M_0004_GameOverLoop.wav');}
  if(BOSS_TEST||!missions.length||!world)return;if(['GotCoin','GotHP','Ran1Meter','Glide1Meter','BossKill','FireWeapon','KilledMovingEnemy','DestroyedStaticHazard','PlayGame'].includes(type))save.totals[type]=(save.totals[type]||0)+amount;
  for(const m of activeMissions()){if(save.completed.includes(m.id)||pendingMission.includes(m.id)||!missionEligible(m,type,sub))continue;const key=String(m.id);let inc=amount;if(type==='Died')inc=m.target;save.missionProgress[key]=(save.missionProgress[key]||0)+inc;if(save.missionProgress[key]>=m.target){pendingMission.push(m.id);save.completed.push(m.id);save.coins+=m.reward;sfx('complete');toast(`Mission complete!\n${m.text}\n+${fmt(m.reward)} coins`);persist();}}
 }
 function advanceMissions(){for(let i=0;i<3;i++){while(save.completed.includes(save.missionIndex[i])&&save.missionIndex[i]<(i+1)*40)save.missionIndex[i]++;if(save.missionIndex[i]>=(i+1)*40)save.missionIndex[i]=-1;}}
-function startBossTest(){resetInput();tutorial=false;pendingMission=[];world=new World({weapon:save.selected,onEvent:event,patterns:normalData.patterns});world.boss=createBoss();Object.assign(world.boss,{x:720,y:412,phase:'fight',vulnerable:true,shoot:.5});state='playing';ended=false;attachHud();muteForPause=false;setMusic('M_0003_Boss.wav');tipTime=0;toast('Boss rig test — jump to hit the driver.');}
-function startRun(isTutorial=false){if(BOSS_TEST&&!isTutorial)return startBossTest();resetInput();tutorial=isTutorial;pendingMission=[];advanceMissions();for(const m of activeMissions())if(!m.cumulative)save.missionProgress[m.id]=0;let effects={};const map={double:{doubleCoins:true},magnet:{magnet:true},blood:{blood:true},armor:{armor:2},megaArmor:{armor:3},power:{power:2},megaPower:{power:3},glide:{glide:true},life:{life:true},head500:{headstart:500},head750:{headstart:750},head1000:{headstart:1000},head1250:{headstart:1250},head1500:{headstart:1500}};if(!isTutorial)for(const id of save.equipped){if((save.stock[id]||0)>0&&map[id]){Object.assign(effects,map[id]);save.stock[id]--;}}effects.longShield=!!save.permanent.longShield;effects.fullHealth=!!save.permanent.fullHealth;world=new World({weapon:save.selected,onEvent:event,effects,patterns:normalData.patterns,tutorial:isTutorial,mode:isTutorial?CLASSIC_MODE:activeGameMode});emberTrail.reset(world);state='playing';ended=false;if(!isTutorial){save.runs++;world.event('PlayGame');}persist();attachHud();muteForPause=false;setMusic('M_0002_InGame.wav');tipTime=0;}
+function startBossTest(){resetInput();tutorial=false;pendingMission=[];activeRunPowerups=[];world=new World({weapon:save.selected,onEvent:event,patterns:normalData.patterns});world.boss=createBoss();Object.assign(world.boss,{x:720,y:412,phase:'fight',vulnerable:true,shoot:.5});state='playing';ended=false;attachHud();muteForPause=false;setMusic('M_0003_Boss.wav');tipTime=0;toast('Boss rig test — jump to hit the driver.');}
+function startRun(isTutorial=false){
+ if(BOSS_TEST&&!isTutorial)return startBossTest();
+ resetInput();tutorial=isTutorial;pendingMission=[];advanceMissions();
+ for(const m of activeMissions())if(!m.cumulative)save.missionProgress[m.id]=0;
+ const effects={};
+ const map={double:{doubleCoins:true},magnet:{magnet:true},blood:{blood:true},
+  armor:{armor:2},megaArmor:{armor:3},power:{power:2},megaPower:{power:3},
+  glide:{glide:true},life:{life:true},head500:{headstart:500},head750:{headstart:750},
+  head1000:{headstart:1000},head1250:{headstart:1250},head1500:{headstart:1500}};
+ const consumed=[];
+ if(!isTutorial)for(const id of save.equipped){
+  if((save.stock[id]||0)>0&&map[id]){
+   Object.assign(effects,map[id]);save.stock[id]--;consumed.push(id);
+  }
+ }
+ effects.longShield=!!save.permanent.longShield;
+ effects.fullHealth=!!save.permanent.fullHealth;
+ // Inventory is displayed AFTER consumption so a last charge reads "0 left".
+ activeRunPowerups=isTutorial?[]:runPowerupBadges(consumed,ITEMS,save.stock,save.permanent);
+ world=new World({weapon:save.selected,onEvent:event,effects,patterns:normalData.patterns,
+  tutorial:isTutorial,mode:isTutorial?CLASSIC_MODE:activeGameMode});
+ emberTrail.reset(world);state='playing';ended=false;
+ if(!isTutorial){save.runs++;world.event('PlayGame');}
+ persist();attachHud();muteForPause=false;setMusic('M_0002_InGame.wav');tipTime=0;
+}
 function finishRun(abandon=false){if(!world||ended)return;ended=true;if(BOSS_TEST){if(!abandon)gameOver();return;}if(tutorial){if(!abandon)gameOver();return;}save.coins+=world.coins;
  const record=modeScoreRecord(world.distance,world.coins,world.kills,world.weapon.id);
  if(world.mode.id===CLASSIC_MODE){
