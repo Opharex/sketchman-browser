@@ -91,9 +91,12 @@ def paint(kind,x,y,luma,area):
   return blend(blend(a,c,clamp(.45+.53*luma)),d,.24*streak)
  raise ValueError(kind)
 def acceptable(r,g,b,a,area):
- # Ink outlines, pistol metal, red burst and logo retain ORIGINAL pixels.
- return a>=45 and r>=78 and g>=100 and b>=119 and b>=r+5 and g>=r+3 and not(
-  area=='body' and r>246 and g>247 and b>247)
+ # Extend coverage through pale arms and near-white title highlights. The
+ # hand-authored exact-pose polygons protect the surrounding notebook art.
+ # Navy outlines, gun metal, dark ink and the red burst remain original.
+ if a<45 or r<74 or g<92 or b<108:return False
+ if area=='head':return b>=r-8 and g>=r-12
+ return b>=r and g>=r-9
 def main(dist):
  master=Image.open(dist/'assets/Graphics/MMN_MainMenu/MMN_MainMenu_1.png').convert('RGBA')
  if master.size!=(1024,1024):raise RuntimeError('Unexpected original title sheet size')
