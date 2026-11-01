@@ -256,3 +256,45 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
  .skins-screen .skin-feature-name{font-size:clamp(11px,1.6vw,16px)}
 }
 @media (prefers-reduced-motion:reduce){.skins-screen .skin-scroll{scroll-behavior:auto}}
+
+
+/* Game modes share the original notebook/screen styling but do not
+   interfere with the existing 3:2 gameplay canvas or weapon carousel. */
+.game-mode-screen{overflow:hidden}
+.game-mode-screen .content{display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.game-mode-hint{margin:0 0 3px;color:#426585;font-size:clamp(11px,1.5vw,17px);text-align:center;line-height:1.35;flex:none}
+.game-mode-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2%;flex:1;min-height:0;align-items:stretch}
+.game-mode-card{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;min-height:0;overflow:hidden;border:3px solid #3a658b;border-radius:10px 14px 8px 13px;background:#fdfbf1;color:#173e65;box-shadow:3px 4px 0 #153e5a35;padding:10px 8px;gap:5px;transition:background .14s ease,border-color .14s ease,transform .14s ease;touch-action:manipulation}
+.game-mode-card:hover,.game-mode-card:focus-visible{background:#e1f3f6;border-color:#1b87c3;transform:translateY(-2px)}
+.game-mode-card.is-selected{border-color:#2a85b6}
+.game-mode-card:active{transform:translateY(2px)}
+.game-mode-art{display:block;flex:none;max-width:100%;width:min(90%,190px);height:clamp(45px,14vh,100px);object-fit:contain;image-rendering:auto;pointer-events:none}
+.game-mode-copy{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-width:0;max-width:100%;flex:1;text-align:center}
+.game-mode-name{font-weight:900;font-size:clamp(13px,2.25vw,26px);line-height:1.12;letter-spacing:-.02em;overflow-wrap:anywhere;text-shadow:1px 1px #b7d3d8}
+.game-mode-description{font-size:clamp(10px,1.3vw,15px);line-height:1.35;color:#47667e;max-width:23em}
+.game-mode-cta{background:#2f83b3;color:#fff;font-weight:800;font-size:clamp(10px,1.2vw,14px);border:1.5px solid #245274;border-radius:6px 9px 5px 8px;padding:5px 10px;box-shadow:1px 2px #123d5833}
+.game-mode-card:hover .game-mode-cta,.game-mode-card:focus-visible .game-mode-cta{background:#146995}
+@media(max-width:600px) and (orientation:portrait){
+ .game-mode-screen{inset:3%;padding:2.3%}
+ .game-mode-screen .content{gap:4px}
+ .game-mode-hint{font-size:11px;margin:0}
+ .game-mode-grid{grid-template-columns:1fr;grid-template-rows:repeat(2,minmax(0,1fr));gap:5px}
+ .game-mode-card{flex-direction:row;padding:5px 7px;gap:6px}
+ .game-mode-art{width:34%;height:auto;max-height:95%;flex:0 0 34%}
+ .game-mode-copy{align-items:flex-start;text-align:left;gap:3px}
+ .game-mode-name{font-size:clamp(12px,3vw,17px)}
+ .game-mode-description{font-size:10px}
+ .game-mode-cta{font-size:10px;padding:3px 7px}
+}
+@media(orientation:landscape) and (max-height:550px){
+ .game-mode-screen{inset:3% 5%;padding:2%}
+ .game-mode-screen header{padding-bottom:1%;margin-bottom:1%}
+ .game-mode-hint{font-size:11px;margin:0}
+ .game-mode-grid{gap:1.5%}
+ .game-mode-card{flex-direction:row;padding:4px 7px;gap:5px}
+ .game-mode-art{width:32%;height:auto;max-height:90%;flex:0 0 32%}
+ .game-mode-copy{gap:3px;text-align:center}
+ .game-mode-name{font-size:clamp(11px,1.9vw,19px)}
+ .game-mode-description{font-size:clamp(9px,1.2vw,12px)}
+ .game-mode-cta{font-size:10px;padding:3px 7px}
+}
