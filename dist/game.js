@@ -19,7 +19,8 @@ import {frameOf,frameName,playerFrame,framePlacement,enemyFrame} from './animati
 import {sceneryTile} from './normal-run.js';
 import {SKINS,DEFAULT_SKIN,getSkin,cosmeticFrame,prepareShadowSprites} from './skins.js?v=nine-skins-01';
 import {isAtlasSkin,thumbnailUrl,skinThumbnail,preloadSkinThumbnails,ensureSkinAtlas,releaseInactiveAtlases,getAtlasFrame,validateSkinMetadata} from './skin-atlas.js?v=obsidian-material-03';
-import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=boss-rig-sync-01';
+import {World,WEAPONS,SCENES,HAZARDS,WIDTH,HEIGHT,FLOOR,PLAYER_X,freshSave,normalizeSave,buyWeapon} from './engine.js?v=game-modes-01';
+import {CLASSIC_MODE,BOMB_MODE,GAME_MODES,getGameMode,modeScoreRecord} from './game-modes.js?v=game-modes-01';
 const $=s=>document.querySelector(s), canvas=$('#game'),ctx=canvas.getContext('2d'),ui=$('#ui');
 const BOSS_TEST=new URLSearchParams(location.search).get('bossTest')==='1';
 let bossRig=null;
@@ -38,6 +39,8 @@ let state='loading',world=null,assets={},sprites={},missions=[],normalData={patt
 let captureControl=null,controlsReturn=menu,uiImages=new Map();
 const emberTrail=new EmberTrail();
 let selectionIndex=0,selectionMotion=new CarouselMotion();
+// A mode selection belongs to the run (and survives retry, shop, pause).
+let activeGameMode=CLASSIC_MODE;
 let pointerJump=new Set(),pointerFire=new Set(),keys=new Set();
 let disposeTouchControls=()=>{};
 const resizeViewport=()=>fitViewport(document.documentElement);
@@ -105,7 +108,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'OBSIDIAN MATERIAL OVERHAUL 03';;;
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'GAME MODES + OOPS ALL BOMBS';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -233,7 +236,7 @@ function renderOriginalOptions(force=false){
 }
 function prepareMenus(){
  prepareOptionsPanels();getMainMenuPaint();versionSplashImage=menuLettering(VERSION_SPLASH);
- for(const label of ['More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow',...SKINS.map(s=>s.name)])menuLettering(label);
+ for(const label of ['CLASSIC','OOPS ALL BOMBS','Choose a Mode','More Settings','Controls','About','Export save','Import save','Back','Reset','Resume','Restart','Menu','Weapons','Retry','Share score','Jump','Fire','Pause','Choose a key to change it','Press a key','Skins','Original Sketchman','Shadow',...SKINS.map(s=>s.name)])menuLettering(label);
  for(const code of [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c=>'Key'+c).concat([...'0123456789'].flatMap(c=>['Digit'+c,'Numpad'+c]),['Space','Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Backspace',...Object.values(save.settings.controls)]))menuLettering(keyLabel(code));
  // These source layers are now retired; the renderer only keeps finished artwork.
  for(const name of ['IMM_MainMenu_01','IMM_Options_01','IMM_Options_MusicON_01','IMM_Options_SoundON_01']){const source=assets[name];source.width=source.height=0;delete assets[name];}
@@ -330,6 +333,13 @@ function renderWorld(){
  if(w.flash>0){ctx.fillStyle=`rgba(187,46,35,${w.flash*1.4})`;ctx.fillRect(0,0,960,640);}
  coinNumber(fmt(w.coins),100,52,88,34,25,'#fff');ctx.save();ctx.beginPath();ctx.rect(350,536,264*w.hp/100,29);ctx.clip();img('HUD_HealthBar_01',350,536,264,29);ctx.restore();
  text(`${fmt(w.distance)}m`,480,600,25,'#fff','center');
+ if(!tutorial && w.t<2.4){
+  const fade=Math.max(0,Math.min(1,(2.4-w.t)/.7));
+  ctx.save();ctx.globalAlpha=fade;ctx.fillStyle='#f8f3dcdf';
+  ctx.strokeStyle='#44627d';ctx.lineWidth=1.4;
+  ctx.fillRect(354,83,252,34);ctx.strokeRect(354,83,252,34);
+  text(w.mode.name,480,106,16,'#20466b','center');ctx.restore();
+ }
  if(tutorial){const t=w.t,tip=t<5?`Tap JUMP or ${keyLabel(save.settings.controls.jump)} to leap over obstacles.`:t<11?'Press again to DOUBLE JUMP and ROLL.':t<17?'Third press + HOLD to GLIDE.':t<24?`Hold FIRE or ${keyLabel(save.settings.controls.fire)}. You can shoot while airborne!`:'Collect coins. Avoid or destroy the red obstacles.';ctx.fillStyle='#fffdeacc';ctx.fillRect(150,125,660,42);text(tip,480,153,21,'#24537a','center');}
  notebook();
 }
@@ -337,9 +347,54 @@ function renderWorld(){
 function button(label,fn,cls='ink'){const b=document.createElement('button');b.className=cls;b.textContent=label;b.onclick=()=>{sfx('click');fn();};return b;}
 function screen(title,{close=menu,balance=false}={}){if(state==='over'&&world)renderWorld();else{paper();notebook();}ui.innerHTML='';const s=document.createElement('section');s.className='screen';const h=document.createElement('header');const t=document.createElement('h1');t.textContent=title;h.append(t);if(balance){const bal=document.createElement('span');bal.className='balance';bal.textContent=`◉ ${fmt(save.coins)}`;h.append(bal);}const b=button('',close,'screen-back-arrow');b.setAttribute('aria-label','Back');b.innerHTML='<img src="shop-art/IMM_BackButton_01.png" alt="">';h.append(b);s.append(h);const c=document.createElement('div');c.className='content';s.append(c);ui.append(s);return {s,c,h};}
 const MAIN_MENU_BUTTONS=[
- ['Play',playSelect],['Shop',()=>shop('menu')],['Scores',scores],
+ ['Play',gameModesScreen],['Shop',()=>shop('menu')],['Scores',scores],
  ['Tutorial',()=>startRun(true)],['Options',settings],['Skins',skinsScreen],['Controls',()=>controlsScreen(menu)]
 ];
+
+function gameModePreview(mode){
+ const c=document.createElement('canvas');
+ c.className='game-mode-art';c.width=192;c.height=110;
+ const painter=c.getContext('2d');
+ // Assets come from the actual extracted mobile APK sprite atlases. They
+ // are already preloaded at boot, so no asynchronous placeholder flashes.
+ const sprites=mode.previewSprites;
+ const images=sprites.map(name=>assets[name]).filter(Boolean);
+ for(let i=0;i<images.length;i++){
+  const img=images[i],limitW=images.length===1?126:82,limitH=92;
+  const scale=Math.min(limitW/img.width,limitH/img.height,1.5);
+  const w=Math.round(img.width*scale),h=Math.round(img.height*scale);
+  const x=images.length===1?(c.width-w)/2:(i===0?49-w/2:143-w/2);
+  const y=(c.height-h)/2+3;
+  painter.drawImage(img,x,y,w,h);
+ }
+ return c;
+}
+function gameModesScreen(){
+ state='game-modes';resetInput();
+ const {s,c}=screen('Choose a Mode',{close:menu});
+ s.classList.add('game-mode-screen');
+ const hint=document.createElement('p');
+ hint.className='game-mode-hint';
+ hint.textContent='Choose your challenge, then select your weapon.';
+ c.append(hint);
+ const grid=document.createElement('div');grid.className='game-mode-grid';c.append(grid);
+ for(const mode of GAME_MODES){
+  const card=document.createElement('button');
+  card.type='button';card.className='game-mode-card';
+  card.setAttribute('aria-label','Play '+mode.name);
+  if(mode.id===activeGameMode)card.classList.add('is-selected');
+  card.append(gameModePreview(mode));
+  const copy=document.createElement('div');copy.className='game-mode-copy';
+  const title=document.createElement('strong');title.className='game-mode-name';title.textContent=mode.name;
+  const subtitle=document.createElement('span');subtitle.className='game-mode-description';subtitle.textContent=mode.description;
+  const tag=document.createElement('span');tag.className='game-mode-cta';tag.textContent='SELECT MODE';
+  copy.append(title,subtitle,tag);card.append(copy);
+  card.onclick=()=>{sfx('click');activeGameMode=mode.id;playSelect();};
+  grid.append(card);
+ }
+ grid.querySelector('.game-mode-card.is-selected')?.focus({preventScroll:true});
+}
+
 let skinPreviewCanvas=null,skinPreviewStatus=null;
 const iconCanvasFor=n=>{
  const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;
@@ -465,7 +520,7 @@ function playSelect(initial=save.selected){
  const prev=make('Previous weapon',()=>browse(-1),'selection-prev');prev.innerHTML='<span aria-hidden="true">‹</span>';
  const next=make('Next weapon',()=>browse(1),'selection-next');next.innerHTML='<span aria-hidden="true">›</span>';
  const action=make('Select Pistol',()=>{if(!selectionMotion.settled)return;const id=SELECTION_ORDER[selectionIndex],owned=save.unlocked.includes(id);if(owned){save.selected=id;persist();sfx('shoot',id);startRun();}else{sfx('click');if(buyWeapon(save,id)){persist();update();}else toast(`You need ${fmt(WEAPONS[id].cost-save.coins)} more coins.`);}},'selection-action');
- make('Back',()=>{sfx('click');menu();},'selection-back');make('Shop',()=>{sfx('click');shop('select');},'selection-shop');
+ make('Back',()=>{sfx('click');gameModesScreen();},'selection-back');make('Shop',()=>{sfx('click');shop('select');},'selection-shop');
  panel.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','a','A','d','D'].includes(e.key)){e.preventDefault();if(e.repeat)return;browse(['ArrowLeft','a','A'].includes(e.key)?-1:1);}});
  let drag=null;panel.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;const width=panel.getBoundingClientRect().width;drag={x:e.clientX,y:e.clientY,position:selectionMotion.position,lastX:e.clientX,lastAt:e.timeStamp,velocity:0,width};selectionMotion.drag(selectionMotion.position);panel.setPointerCapture(e.pointerId);});
  panel.addEventListener('pointermove',e=>{if(!drag)return;const scale=960/drag.width,elapsed=Math.max(1,e.timeStamp-drag.lastAt);drag.velocity=-(e.clientX-drag.lastX)*scale/(elapsed*.06);drag.lastX=e.clientX;drag.lastAt=e.timeStamp;selectionMotion.drag(drag.position-(e.clientX-drag.x)*scale/450);});
@@ -511,9 +566,23 @@ function event(type,amount=1,sub=0){if(type==='bossShoot')sfx('shoot',1);if(type
 }
 function advanceMissions(){for(let i=0;i<3;i++){while(save.completed.includes(save.missionIndex[i])&&save.missionIndex[i]<(i+1)*40)save.missionIndex[i]++;if(save.missionIndex[i]>=(i+1)*40)save.missionIndex[i]=-1;}}
 function startBossTest(){resetInput();tutorial=false;pendingMission=[];world=new World({weapon:save.selected,onEvent:event,patterns:normalData.patterns});world.boss=createBoss();Object.assign(world.boss,{x:720,y:412,phase:'fight',vulnerable:true,shoot:.5});state='playing';ended=false;attachHud();muteForPause=false;setMusic('M_0003_Boss.wav');tipTime=0;toast('Boss rig test — jump to hit the driver.');}
-function startRun(isTutorial=false){if(BOSS_TEST&&!isTutorial)return startBossTest();resetInput();tutorial=isTutorial;pendingMission=[];advanceMissions();for(const m of activeMissions())if(!m.cumulative)save.missionProgress[m.id]=0;let effects={};const map={double:{doubleCoins:true},magnet:{magnet:true},blood:{blood:true},armor:{armor:2},megaArmor:{armor:3},power:{power:2},megaPower:{power:3},glide:{glide:true},life:{life:true},head500:{headstart:500},head750:{headstart:750},head1000:{headstart:1000},head1250:{headstart:1250},head1500:{headstart:1500}};if(!isTutorial)for(const id of save.equipped){if((save.stock[id]||0)>0&&map[id]){Object.assign(effects,map[id]);save.stock[id]--;}}effects.longShield=!!save.permanent.longShield;effects.fullHealth=!!save.permanent.fullHealth;world=new World({weapon:save.selected,onEvent:event,effects,patterns:normalData.patterns,tutorial:isTutorial});emberTrail.reset(world);state='playing';ended=false;if(!isTutorial){save.runs++;world.event('PlayGame');}persist();attachHud();muteForPause=false;setMusic('M_0002_InGame.wav');tipTime=0;}
-function finishRun(abandon=false){if(!world||ended)return;ended=true;if(BOSS_TEST){if(!abandon)gameOver();return;}if(tutorial){if(!abandon)gameOver();return;}save.coins+=world.coins;save.best=Math.max(save.best,Math.floor(world.distance));save.scores.push({distance:Math.floor(world.distance),coins:world.coins,kills:world.kills,weapon:world.weapon.id,date:new Date().toISOString()});save.scores.sort((a,b)=>b.distance-a.distance);save.scores=save.scores.slice(0,10);persist();if(!abandon)gameOver();}
-function gameOver(){state='over';resetInput();const {s,c}=screen('Game Over',{close:menu,balance:true});s.classList.add('center');c.style.flex='initial';c.innerHTML=`<p>${Math.floor(world.distance)>=save.best?'A new line in the record book.':'One more run. One more page.'}</p><div class="stats"><div><strong>${fmt(world.distance)}m</strong><span>DISTANCE</span></div><div><strong>${fmt(world.coins)}</strong><span>COINS</span></div><div><strong>${world.kills}</strong><span>ENEMIES</span></div></div><p>Personal best: <b>${fmt(save.best)}m</b></p>`;const a=document.createElement('div');a.className='actions';a.append(artButton('Menu',menu),artButton('Weapons',playSelect),artButton('Retry',()=>startRun()));s.append(a);const b=artButton('Share score',async()=>{const message=`I ran ${fmt(world.distance)}m in Sketchman!`;try{if(navigator.share)await navigator.share({title:'Sketchman',text:message,url:location.href});else{await navigator.clipboard.writeText(`${message} ${location.href}`);toast('Score and link copied.');}}catch{toast(message);}});c.append(b);}
+function startRun(isTutorial=false){if(BOSS_TEST&&!isTutorial)return startBossTest();resetInput();tutorial=isTutorial;pendingMission=[];advanceMissions();for(const m of activeMissions())if(!m.cumulative)save.missionProgress[m.id]=0;let effects={};const map={double:{doubleCoins:true},magnet:{magnet:true},blood:{blood:true},armor:{armor:2},megaArmor:{armor:3},power:{power:2},megaPower:{power:3},glide:{glide:true},life:{life:true},head500:{headstart:500},head750:{headstart:750},head1000:{headstart:1000},head1250:{headstart:1250},head1500:{headstart:1500}};if(!isTutorial)for(const id of save.equipped){if((save.stock[id]||0)>0&&map[id]){Object.assign(effects,map[id]);save.stock[id]--;}}effects.longShield=!!save.permanent.longShield;effects.fullHealth=!!save.permanent.fullHealth;world=new World({weapon:save.selected,onEvent:event,effects,patterns:normalData.patterns,tutorial:isTutorial,mode:isTutorial?CLASSIC_MODE:activeGameMode});emberTrail.reset(world);state='playing';ended=false;if(!isTutorial){save.runs++;world.event('PlayGame');}persist();attachHud();muteForPause=false;setMusic('M_0002_InGame.wav');tipTime=0;}
+function finishRun(abandon=false){if(!world||ended)return;ended=true;if(BOSS_TEST){if(!abandon)gameOver();return;}if(tutorial){if(!abandon)gameOver();return;}save.coins+=world.coins;
+ const record=modeScoreRecord(world.distance,world.coins,world.kills,world.weapon.id);
+ if(world.mode.id===CLASSIC_MODE){
+  // Keep the original Classic records and save schema behavior intact.
+  save.best=Math.max(save.best,record.distance);save.scores.push(record);
+  save.scores.sort((a,b)=>b.distance-a.distance);save.scores=save.scores.slice(0,10);
+ }else{
+  // Alternate mode scores never inflate the existing Classic leaderboard.
+  save.modeRecords??={};
+  const board=save.modeRecords[world.mode.id]||{best:0,scores:[]};
+  board.best=Math.max(board.best,record.distance);
+  board.scores.push(record);board.scores.sort((a,b)=>b.distance-a.distance);
+  board.scores=board.scores.slice(0,10);save.modeRecords[world.mode.id]=board;
+ }
+ persist();if(!abandon)gameOver();}
+function gameOver(){state='over';resetInput();const {s,c}=screen('Game Over',{close:menu,balance:true});s.classList.add('center');c.style.flex='initial';c.innerHTML=`<p>${Math.floor(world.distance)>=(world.mode.id===CLASSIC_MODE?save.best:save.modeRecords?.[world.mode.id]?.best??0)?'A new line in the record book.':'One more run. One more page.'}</p><div class="stats"><div><strong>${fmt(world.distance)}m</strong><span>DISTANCE</span></div><div><strong>${fmt(world.coins)}</strong><span>COINS</span></div><div><strong>${world.kills}</strong><span>ENEMIES</span></div></div><p>Personal best (${world.mode.name}): <b>${fmt(world.mode.id===CLASSIC_MODE?save.best:save.modeRecords?.[world.mode.id]?.best??0)}m</b></p>`;const a=document.createElement('div');a.className='actions';a.append(artButton('Menu',menu),artButton('Weapons',playSelect),artButton('Retry',()=>startRun()));s.append(a);const b=artButton('Share score',async()=>{const message=`I ran ${fmt(world.distance)}m in Sketchman!`;try{if(navigator.share)await navigator.share({title:'Sketchman',text:message,url:location.href});else{await navigator.clipboard.writeText(`${message} ${location.href}`);toast('Score and link copied.');}}catch{toast(message);}});c.append(b);}
 function pause(){if(state!=='playing')return;state='paused';resetInput();muteForPause=true;updateMusic();const overlay=document.createElement('div');overlay.className='paused';ui.append(overlay);const panel=document.createElement('section');panel.className='screen center sketch-pause';panel.innerHTML='<h1>PAUSED</h1>';const a=document.createElement('div');a.className='actions';a.append(artButton('Resume',resume),artButton('Shop',()=>shop('paused')),artButton('Controls',()=>controlsScreen(()=>{state='playing';attachHud();pause();})),artButton('Restart',()=>{finishRun(true);startRun();}),artButton('Menu',()=>{finishRun(true);menu();}));panel.append(a);overlay.append(panel);}
 function resume(){if(!world||world.dead)return;state='playing';resetInput();attachHud();muteForPause=false;updateMusic();last=performance.now();}
 const ITEMS=[
