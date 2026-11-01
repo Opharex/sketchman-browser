@@ -1,73 +1,32 @@
-// Dedicated, user-supplied title-screen illustrations. These are not gameplay
-// sprites and never change a player's equipped skin or saved progress.
+// Nine baked original-title-pose assets, independent of equipped gameplay skin.
+// These transparent images are drawn directly at the exact original coordinates.
 export const MENU_PORTRAIT_IDS=Object.freeze([
  'crimson_bolt','frost_runner','toxic_lime','royal_gold','neon_synthwave',
  'obsidian_ember','deep_ocean','sunset_blaze','jungle_camo'
 ]);
-export const MENU_PORTRAIT_ERASE=Object.freeze({x:255,y:65,width:380,height:249});
-export const MENU_PORTRAIT_PLACEMENT=Object.freeze({x:272,y:70,width:224,height:232});
-export const portraitUrl=id=>'menu-portraits/'+id+'.webp';
+// Original sheet begins at y=49; the registered title canvas is cropped.
+// Baked source region is (327,134,155,187) on the untrimmed master sheet.
+export const MENU_PORTRAIT_FRAME=Object.freeze({x:327,y:85,width:155,height:187});
+export const portraitUrl=id=>'menu-portraits/prebuilt/'+id+'.png';
 export function choosePortrait(previous=null,random=Math.random,ids=MENU_PORTRAIT_IDS){
  if(!ids.length)return null;
- const choices=ids.length===1?ids:ids.filter(id=>id!==previous);
- const n=Math.min(choices.length-1,Math.max(0,Math.floor(random()*choices.length)));
- return choices[n];
+ const candidates=ids.length===1?ids:ids.filter(id=>id!==previous);
+ const n=Math.min(candidates.length-1,Math.max(0,Math.floor(random()*candidates.length)));
+ return candidates[n];
 }
 export async function preloadMenuPortraits(factory=()=>new Image()){
  const entries=await Promise.all(MENU_PORTRAIT_IDS.map(async id=>{
-  const image=factory();
-  // Register onload before assigning src to support older iOS WebKit.
+  const img=factory();
   const loaded=new Promise((resolve,reject)=>{
-   image.onload=()=>resolve();
-   image.onerror=()=>reject(new Error('Cannot load custom title portrait '+id));
+   img.onload=()=>resolve();img.onerror=()=>reject(new Error('Missing menu portrait '+id));
   });
-  image.src=portraitUrl(id);
-  if(image.decode)await image.decode().catch(()=>loaded);
+  img.src=portraitUrl(id);
+  if(img.decode)await img.decode().catch(()=>loaded);
   else await loaded;
-  if(!image.naturalWidth||!image.naturalHeight)throw new Error('Empty title portrait '+id);
-  image.onload=null;image.onerror=null;
-  return [id,image];
+  if((img.naturalWidth||img.width)!==MENU_PORTRAIT_FRAME.width||
+     (img.naturalHeight||img.height)!==MENU_PORTRAIT_FRAME.height)
+   throw new Error('Unexpected dimensions for '+id);
+  img.onload=null;img.onerror=null;return [id,img];
  }));
  return new Map(entries);
-}
-function polygon(x,y,points){
- let contained=false;
- for(let i=0,j=points.length-1;i<points.length;j=i++){
-  const a=points[i],b=points[j];
-  if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])contained=!contained;
- }
- return contained;
-}
-const BODY=[[382,179],[431,178],[453,203],[468,226],[468,274],
- [453,308],[402,309],[380,289],[358,277],[337,303],[316,301],
- [317,265],[337,224],[353,196]];
-const PISTOL=[[418,159],[456,132],[570,90],[610,90],
- [619,120],[571,156],[497,186],[494,219],[454,238],[419,213]];
-function legacyHeroPixel(x,y){
- const head=((x-405)/57)**2+((y-145)/56)**2<=1.13;
- return head||polygon(x,y,BODY)||polygon(x,y,PISTOL);
-}
-// Clear only the original painted gun-holding figure from the title sprite.
-// Preserve the underlying notebook (drawn separately), the main menu buttons,
-// and red impact splashes that are part of the original logo composition.
-export function eraseLegacyTitleFigure(pixels,width,height,originX=MENU_PORTRAIT_ERASE.x,originY=MENU_PORTRAIT_ERASE.y){
- const output=new Uint8ClampedArray(pixels);
- for(let row=0;row<height;row++)for(let col=0;col<width;col++){
-  const x=originX+col,y=originY+row;
-  if(!legacyHeroPixel(x,y))continue;
-  const p=(row*width+col)*4,r=pixels[p],g=pixels[p+1],b=pixels[p+2];
-  if(pixels[p+3]===0)continue;
-  // Red ink in the burst stays in place. Black, ivory and blue player/gun
-  // artwork is erased, preventing a duplicate character behind the new pose.
-  if(r>105&&r>g*1.32&&r>b*1.30)continue;
-  output[p+3]=0;
- }
- return output;
-}
-export function portraitPlacement(image,slot=MENU_PORTRAIT_PLACEMENT){
- const width=image.naturalWidth||image.width;
- const height=image.naturalHeight||image.height;
- const scale=Math.min(slot.width/width,slot.height/height);
- const w=width*scale,h=height*scale;
- return {x:slot.x+(slot.width-w)/2,y:slot.y+slot.height-h,width:w,height:h};
 }
