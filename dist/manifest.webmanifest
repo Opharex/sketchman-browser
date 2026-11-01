@@ -1,0 +1,17 @@
+{
+  "name": "Sketchman Browser Recreation",
+  "short_name": "Sketchman",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#152534",
+  "theme_color": "#152534",
+  "icons": [
+    {
+      "src": "icons/CHR_JumpNGun_01.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ]
+}

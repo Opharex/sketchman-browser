@@ -1,8 +1,10 @@
 // Safari's visible viewport changes when its address bar or orientation changes.
 export function fitViewport(root,view=window){
  const viewport=view.visualViewport;
- root.style.setProperty('--viewport-width',`${viewport?.width||view.innerWidth}px`);
- root.style.setProperty('--viewport-height',`${viewport?.height||view.innerHeight}px`);
+ const width=Math.max(1,Math.round(viewport?.width||view.innerWidth));
+ const height=Math.max(1,Math.round(viewport?.height||view.innerHeight));
+ root.style.setProperty('--viewport-width',width+'px');
+ root.style.setProperty('--viewport-height',height+'px');
 }
 // Track each finger independently. A jump finger lifting must not release fire.
 export function bindTouchControls(surface,{active,press,release},view=window){

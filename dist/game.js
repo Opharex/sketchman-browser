@@ -47,9 +47,25 @@ const modeCarousel={index:0,motion:null,cards:[],track:null,prev:null,next:null,
 let activeGameMode=CLASSIC_MODE;
 let pointerJump=new Set(),pointerFire=new Set(),keys=new Set();
 let disposeTouchControls=()=>{};
-const resizeViewport=()=>fitViewport(document.documentElement);
+let cameraPadding=0;
+// Wide devices show more world; never scale the sprites non-uniformly.
+function resizeViewport(){
+ fitViewport(document.documentElement);
+ const rect=$('#stage').getBoundingClientRect();
+ const wide=matchMedia('(orientation:landscape) and (pointer:coarse)').matches||
+  !!document.fullscreenElement||$('#app').classList.contains('app-expanded');
+ const width=wide&&rect.width/Math.max(1,rect.height)>WIDTH/HEIGHT
+  ?Math.min(1920,Math.max(WIDTH,Math.round(HEIGHT*rect.width/rect.height))):WIDTH;
+ if(canvas.width!==width||canvas.height!==HEIGHT){canvas.width=width;canvas.height=HEIGHT;}
+ cameraPadding=(width-WIDTH)/2;
+ ctx.setTransform(1,0,0,1,cameraPadding,0);
+ $('#stage').style.setProperty('--game-ui-percent',(WIDTH/width*100)+'%');
+}
 resizeViewport();window.addEventListener('resize',resizeViewport);
 window.visualViewport?.addEventListener('resize',resizeViewport);
+window.addEventListener('orientationchange',()=>requestAnimationFrame(resizeViewport));
+window.addEventListener('pageshow',resizeViewport);
+document.addEventListener('fullscreenchange',resizeViewport);
 const ICON=n=>`icons/${n}.png`;
 const fmt=n=>Math.floor(n).toLocaleString();
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(save));}catch{storageOK=false;}}
@@ -96,11 +112,20 @@ window.addEventListener('pointerdown',unlockMenuAudio,{capture:true});
 window.addEventListener('keydown',unlockMenuAudio,{capture:true});
 window.addEventListener('touchend',unlockMenuAudio,{capture:true,passive:true});
 
-function img(n,x,y,w,h,alpha=1){const im=assets[n];if(!im)return;ctx.save();ctx.globalAlpha=alpha;ctx.drawImage(im,x,y,w??im.width,h??im.height);ctx.restore();}
+function img(n,x,y,w,h,alpha=1){const im=assets[n];if(!im)return;const iw=w??im.width,ih=h??im.height;
+ if(alpha===1&&ctx.globalAlpha===1){ctx.drawImage(im,x,y,iw,ih);return;}
+ const previous=ctx.globalAlpha;ctx.globalAlpha=alpha;ctx.drawImage(im,x,y,iw,ih);ctx.globalAlpha=previous;
+}
 function sprite(n,x,y,scale=1,flip=false,alpha=1){const im=assets[n];if(!im)return;ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);if(flip)ctx.scale(-1,1);ctx.drawImage(im,-im.width*scale/2,-im.height*scale,im.width*scale,im.height*scale);ctx.restore();}
 function original(n,x,y,w,h){const s=sprites[n];if(!s)return;const v=s.v;img(n,x+v[11]*(w/v[5]),y+v[12]*(h/v[6]),v[7]*(w/v[5]),v[8]*(h/v[6]));}
 function text(s,x,y,size=24,color='#1b4d79',align='left'){ctx.fillStyle=color;ctx.font=`italic bold ${size}px 'Trebuchet MS',sans-serif`;ctx.textAlign=align;ctx.fillText(s,x,y);}
-function paper(){ctx.fillStyle='#efefdd';ctx.fillRect(0,0,960,640);if(assets.IMM_MenuBack_01)img('IMM_MenuBack_01',0,0,960,640);else{ctx.strokeStyle='#8ab5bb28';ctx.lineWidth=.6;ctx.beginPath();for(let x=0;x<960;x+=18){ctx.moveTo(x,0);ctx.lineTo(x,640);}for(let y=0;y<640;y+=18){ctx.moveTo(0,y);ctx.lineTo(960,y);}ctx.stroke();}}
+function paper(){const left=-cameraPadding,right=WIDTH+cameraPadding;
+ ctx.fillStyle='#efefdd';ctx.fillRect(left,0,canvas.width,HEIGHT);
+ if(assets.IMM_MenuBack_01)img('IMM_MenuBack_01',left,0,canvas.width,HEIGHT);
+ else{ctx.strokeStyle='#8ab5bb28';ctx.lineWidth=.6;ctx.beginPath();
+ for(let x=left;x<right;x+=18){ctx.moveTo(x,0);ctx.lineTo(x,HEIGHT);}
+ for(let y=0;y<HEIGHT;y+=18){ctx.moveTo(left,y);ctx.lineTo(right,y);}ctx.stroke();}
+}
 // Fit the visible numeral bounds, including italic overhang, inside the artwork.
 function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
  const label=String(value);ctx.save();ctx.fillStyle=color;ctx.textAlign='left';ctx.textBaseline='alphabetic';
@@ -110,9 +135,12 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
  ctx.font=`italic bold ${size*fit}px 'Trebuchet MS',sans-serif`;m=ctx.measureText(label);
  ctx.fillText(label,x+(width-m.actualBoundingBoxLeft-m.actualBoundingBoxRight)/2+m.actualBoundingBoxLeft,y+(height+m.actualBoundingBoxAscent-m.actualBoundingBoxDescent)/2);ctx.restore();
 }
-function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
+function notebook(){const left=-cameraPadding,right=WIDTH+cameraPadding;
+ img('SCN_NoteBookTop_01',left,0,canvas.width,20);img('SCN_NoteBookBottom_01',left,620,canvas.width,20);
+ img('SCN_NoteBookLeft_01',left,0,18,640);img('SCN_NoteBookRight_01',right-16,0,16,640);
+}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'PREBUILT MENU PORTRAITS';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'IPHONE WIDESCREEN + PERFORMANCE';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -343,15 +371,15 @@ function renderBoss(w){const b=w.boss||w.bossDeath;if(!b)return;const dying=!!w.
 }
 function renderWorld(){
  const w=world;
- if(assets.gamePaper)ctx.drawImage(assets.gamePaper,0,0,960,640,0,0,960,640);else paper();
+ if(assets.gamePaper)ctx.drawImage(assets.gamePaper,-cameraPadding,0,canvas.width,HEIGHT);else paper();
  // Exact original scenery sequence, parallax, cropped tile offsets, and rear/front ground layers.
- const start=Math.floor((w.backgroundScroll-768)/1024),end=Math.ceil((w.backgroundScroll+1220)/1024);
+ const start=Math.floor((w.backgroundScroll-768-cameraPadding)/1024),end=Math.ceil((w.backgroundScroll+1220+cameraPadding)/1024);
  for(let i=start;i<=end;i++){if(i<0)continue;drawFrame(sceneryTile(i),i*1024-w.backgroundScroll+256,218,2);}
- let off=w.scroll%1024;for(let x=-off;x<960;x+=1024)original('SCN_Floor_01',x,400,1024,64);
+ let off=w.scroll%1024;for(let x=-off-1024;x<WIDTH+cameraPadding;x+=1024)original('SCN_Floor_01',x,400,1024,64);
  ctx.save();if(save.settings.shake&&w.shake>0)ctx.translate(Math.sin(anim*71)*w.shake,Math.cos(anim*91)*w.shake*.4);
  if(w.boss?.phase==='pass')renderBoss(w);
  // Draw all shadows first; animation trim never moves their world anchors.
- for(const e of w.entities){if(e.x>1160||e.type==='coin'||e.type==='health'||e.type==='shield')continue;const nearFloor=e.y-e.h/2>350;if(nearFloor)img('SCN_Shadow_01',e.x-45,473,90,14,.22);}
+ for(const e of w.entities){if(e.x>WIDTH+cameraPadding+65||e.type==='coin'||e.type==='health'||e.type==='shield')continue;const nearFloor=e.y-e.h/2>350;if(nearFloor)img('SCN_Shadow_01',e.x-45,473,90,14,.22);}
  // Keep the death frames visible at the original player anchor. The prior
  // deathSlide moved the character beyond the right edge before the clip ended.
  const actorX=PLAYER_X,actorY=w.y-64;
@@ -359,7 +387,7 @@ function renderWorld(){
  // flames cannot cover enemy tells or obstruct gameplay visibility.
  if(selectedSkin==='obsidian_ember')emberTrail.draw(ctx,w);
  const shadowScale=Math.max(.3,1-(FLOOR-w.y)/400);img('SCN_Shadow_01',actorX-50*shadowScale,476,100*shadowScale,14,.32);
- for(const e of w.entities){if(e.x>1200)continue;const cy=e.y-e.h/2;
+ for(const e of w.entities){if(e.x>WIDTH+cameraPadding+65)continue;const cy=e.y-e.h/2;
   if(e.type==='coin'){const prefix=e.id===1?'COIN_green_':e.id===2?'COIN_red_':'CON_Coin_';drawFrame(frameName(prefix,frameOf('coin',e.age)),e.x,cy,1);}
   else if(e.type==='health'||e.type==='shield'||e.type==='coinBoost')drawFrame(e.type==='health'?'PWR_Health_01':e.type==='shield'?'PWR_Invincible_01':'PWR_CoinBoost_01',e.x,cy+(e.sourcePowerup?0:Math.sin(e.age*4)*3),e.sourcePowerup?1:.55);
   else if(e.type==='enemy'){
@@ -398,8 +426,8 @@ function renderWorld(){
  for(const p of w.particles)drawParticle(ctx,p,assets);
  ctx.restore();
  // Foreground ink is in front of feet, matching the APK's layer order.
- off=w.foregroundScroll%1024;for(let x=-off;x<960;x+=1024)original('SCN_FrontFloor_01',x,482,1024,55);
- if(w.flash>0){ctx.fillStyle=`rgba(187,46,35,${w.flash*1.4})`;ctx.fillRect(0,0,960,640);}
+ off=w.foregroundScroll%1024;for(let x=-off-1024;x<WIDTH+cameraPadding;x+=1024)original('SCN_FrontFloor_01',x,482,1024,55);
+ if(w.flash>0){ctx.fillStyle=`rgba(187,46,35,${w.flash*1.4})`;ctx.fillRect(-cameraPadding,0,canvas.width,HEIGHT);}
  coinNumber(fmt(w.coins),100,52,88,34,25,'#fff');
  if(w.coinBoostTimer>0){const multiplier=w.effects.doubleCoins?4:2;ctx.save();ctx.fillStyle='#fff5d8e8';ctx.strokeStyle='#3c6d4b';ctx.lineWidth=2;ctx.fillRect(205,36,170,37);ctx.strokeRect(205,36,170,37);text('COINS x'+multiplier+'  '+Math.ceil(w.coinBoostTimer)+'s',215,61,18,'#266341');ctx.restore();}
  ctx.save();ctx.beginPath();ctx.rect(350,536,264*w.hp/100,29);ctx.clip();img('HUD_HealthBar_01',350,536,264,29);ctx.restore();
@@ -845,11 +873,42 @@ window.addEventListener('keydown',e=>{const k=e.code;
   if(k==='Enter'&&!e.target.closest?.('button')){e.preventDefault();confirmGameMode();return;}
   if(k==='Escape'){e.preventDefault();menu();return;}
   return;
- }if(state==='select'&&(k==='KeyA'||k==='KeyD')){e.preventDefault();if(!e.target.closest?.('.weapon-selection'))document.querySelector('.weapon-selection')?.dispatchEvent(new KeyboardEvent('keydown',{key:k==='KeyA'?'a':'d',bubbles:false}));return;}if(state!=='playing')return;const c=save.settings.controls;if(k!==c.jump&&k!==c.fire)return;e.preventDefault();keys.add(k);if(k===c.jump)world.jump();if(k===c.fire&&world.cooldown<=0)world.shoot();syncInput();});window.addEventListener('keyup',e=>{keys.delete(e.code);syncInput();});window.addEventListener('blur',()=>{if(state==='playing')pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause();});window.addEventListener('contextmenu',e=>{if(e.target.closest('#frame'))e.preventDefault();});if(matchMedia('(pointer: coarse)').matches)$('#hint').textContent='Touch controls · landscape recommended';const toggleFullscreen=async()=>{sfx('click');const app=$('#app');try{if(document.fullscreenElement){await document.exitFullscreen();}else if(app.requestFullscreen){await app.requestFullscreen();if(window.screen.orientation?.lock)await window.screen.orientation.lock('landscape').catch(()=>{});}else{app.classList.toggle('app-expanded');}}catch{app.classList.toggle('app-expanded');}resizeViewport();};$('#fullscreen').onclick=toggleFullscreen;$('#mobileFullscreen').onclick=toggleFullscreen;
-let simulationRemainder=0;
+ }if(state==='select'&&(k==='KeyA'||k==='KeyD')){e.preventDefault();if(!e.target.closest?.('.weapon-selection'))document.querySelector('.weapon-selection')?.dispatchEvent(new KeyboardEvent('keydown',{key:k==='KeyA'?'a':'d',bubbles:false}));return;}if(state!=='playing')return;const c=save.settings.controls;if(k!==c.jump&&k!==c.fire)return;e.preventDefault();keys.add(k);if(k===c.jump)world.jump();if(k===c.fire&&world.cooldown<=0)world.shoot();syncInput();});window.addEventListener('keyup',e=>{keys.delete(e.code);syncInput();});window.addEventListener('blur',()=>{if(state==='playing')pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause();});window.addEventListener('contextmenu',e=>{if(e.target.closest('#frame'))e.preventDefault();});if(matchMedia('(pointer: coarse)').matches)$('#hint').textContent='Touch controls · landscape recommended';const toggleFullscreen=async()=>{sfx('click');const app=$('#app');let fallback=false;
+ try{if(document.fullscreenElement){await document.exitFullscreen();}
+ else if(document.fullscreenEnabled&&app.requestFullscreen){await app.requestFullscreen();
+  if(window.screen.orientation?.lock)await window.screen.orientation.lock('landscape').catch(()=>{});}
+ else{app.classList.toggle('app-expanded');fallback=true;}}
+ catch{app.classList.toggle('app-expanded');fallback=true;}
+ resizeViewport();
+ if(fallback&&app.classList.contains('app-expanded')&&/iPhone|iPod/.test(navigator.userAgent)&&
+  !navigator.standalone&&!matchMedia('(display-mode:standalone)').matches&&!matchMedia('(display-mode:fullscreen)').matches)
+  toast('To hide Safari bars: Share → Add to Home Screen, then open Sketchman.');
+};$('#fullscreen').onclick=toggleFullscreen;$('#mobileFullscreen').onclick=toggleFullscreen;
+let simulationRemainder=0,lastUiPaint=-Infinity,lastPaintState='';
+const PERF_DIAGNOSTICS=new URLSearchParams(location.search).get('perf')==='1';
+let perfMonitor=null,perfFrameCount=0,perfStart=0,perfWorst=0;
+if(PERF_DIAGNOSTICS){perfMonitor=document.createElement('div');perfMonitor.id='perfMonitor';
+ perfMonitor.setAttribute('aria-label','Performance diagnostic');$('#frame').append(perfMonitor);}
 function frame(now){const dt=Math.max(0,Math.min((now-last)/1000||0,.1));last=now;anim+=dt;
  if(state==='playing'&&world){simulationRemainder+=dt;while(simulationRemainder>=1/60-1e-9&&state==='playing'){world.update(1/60);emberTrail.step(world,selectedSkin==='obsidian_ember',1/60,PLAYER_X);tipTime+=1/60;simulationRemainder-=1/60;if(world.dead&&world.deathTime>1.25)finishRun();}}else simulationRemainder=0;
- if(world&&['playing','paused','over'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}else if(state==='game-modes'){modeCarousel.motion.advance(dt);updateModeCarousel();}else if(state==='skins')updateSkinPreview();requestAnimationFrame(frame);
+ // Avoid idle 60 FPS canvas repaints in the menu, scores and paused screens.
+ if(document.hidden){requestAnimationFrame(frame);return;}
+ if(state!=='playing'&&lastPaintState===state&&now-lastUiPaint<1000/30){requestAnimationFrame(frame);return;}
+ const uiDt=lastPaintState===state?Math.max(0,Math.min(.1,(now-lastUiPaint)/1000)):0;
+ if(world&&['playing','paused','over'].includes(state))renderWorld();
+ else if(state==='menu')renderMenu();
+ else if(state==='settings')renderOriginalOptions();
+ else if(state==='select'){selectionMotion.advance(uiDt);renderWeaponSelection();}
+ else if(state==='game-modes'){modeCarousel.motion.advance(uiDt);updateModeCarousel();}
+ else if(state==='skins')updateSkinPreview();
+ lastUiPaint=now;lastPaintState=state;
+ if(PERF_DIAGNOSTICS){perfFrameCount++;perfWorst=Math.max(perfWorst,performance.now()-now);
+  if(!perfStart)perfStart=now;
+  if(now-perfStart>=1000){perfMonitor.textContent=Math.round(perfFrameCount*1000/(now-perfStart))+
+   ' FPS · worst '+perfWorst.toFixed(1)+' ms · '+canvas.width+'×'+canvas.height+
+   ' · '+Math.round($('#frame').clientWidth)+'×'+Math.round($('#frame').clientHeight);
+   perfFrameCount=0;perfWorst=0;perfStart=now;}}
+ requestAnimationFrame(frame);
 }
 async function boot(){try{const menuPortraitsReady=preloadMenuPortraits();const skinThumbsReady=preloadSkinThumbnails().catch(e=>{console.error('Skin thumbnails failed:',e);return 0;});const bossAudioReady=soundPlayer.preload([BOSS_SHOT_SOUND,BOSS_COCK_SOUND]);let atlasProgress=0,uiProgress=0;const progress=()=>{$('#progress').value=atlasProgress*.7+uiProgress*.3;};$('#loadStatus').textContent='Loading artwork and menu textures';const uiReady=preloadUiImages(UI_IMAGE_URLS,{onProgress:(done,total)=>{uiProgress=done/total*100;progress();}});uiReady.catch(()=>{});warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
  await Promise.all(Array.from({length:2},async()=>{while(queue.length){const sheet=queue.shift();await new Promise((resolve,reject)=>{
