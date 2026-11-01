@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {World,HAZARDS,FLOOR,freshSave,normalizeSave} from '../dist/engine.js';
 import {CLASSIC_MODE,BOMB_MODE,GAME_MODES,getGameMode,substituteHazard,modeScoreRecord} from '../dist/game-modes.js';
-import patternsFile from '../dist/assets/normal-patterns.json' with {type:'json'};
-const patterns=patternsFile.patterns;
+const patterns=JSON.parse(fs.readFileSync(new URL('../dist/assets/normal-patterns.json',import.meta.url),'utf8')).patterns;
 
 test('Game mode registry is extensible; unknown modes safely fall back to Classic',()=>{
  assert.equal(GAME_MODES.length,2);
