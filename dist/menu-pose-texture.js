@@ -6,6 +6,10 @@ const HEAD={x:405,y:146,rx:54,ry:55};
 const BODY=[[370,189],[396,180],[431,182],[447,197],[463,213],
  [469,235],[447,243],[438,229],[432,255],[438,310],[397,309],
  [378,285],[358,276],[345,299],[326,298],[326,274],[345,226]];
+// The separately inked revolver overlaps the forward arm. The pistol is a
+// protected foreground shape, including its pale blue highlights and grip.
+const PISTOL=[[418,159],[456,132],[570,90],[610,90],[619,120],
+ [571,156],[497,186],[494,219],[454,238],[419,213]];
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 function polygon(x,y,vertices){
  let inside=false;
@@ -16,6 +20,7 @@ function polygon(x,y,vertices){
  return inside;
 }
 export function titleFigureZone(x,y){
+ if(polygon(x,y,PISTOL))return null;
  if(((x-HEAD.x)/HEAD.rx)**2+((y-HEAD.y)/HEAD.ry)**2<.96)return 'head';
  return polygon(x,y,BODY)?'body':null;
 }

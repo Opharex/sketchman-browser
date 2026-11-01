@@ -68,6 +68,7 @@ test('new menu portraits project uploaded material onto original gun-holding pos
  assert.ok(rgba(405,145)[0]>200&&rgba(405,145)[1]<40,'reference head texture is used');
  assert.ok(rgba(400,245)[0]>200&&rgba(400,245)[2]<50,'reference body texture is used');
  assert.deepEqual(rgba(570,110),[180,205,238,255],'gun and title surroundings are untouched');
+ assert.deepEqual(rgba(460,190),[180,205,238,255],'forward pistol highlight cannot be repainted');
  assert.deepEqual([...original.slice(0,4)],[180,205,238,255],'source art stays immutable');
 });
 test('menu pre-bakes every reference into the fixed title pose rather than inserting running figures',()=>{
