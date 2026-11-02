@@ -55,6 +55,8 @@ resizeViewport();window.addEventListener('resize',resizeViewport);
 window.visualViewport?.addEventListener('resize',resizeViewport);
 const ICON=n=>`icons/${n}.png`;
 const fmt=n=>Math.floor(n).toLocaleString();
+// One-time mission reset; leaves wallet, purchases, records and upgrades untouched.
+if(!save.missionReset20261102){save.missionIndex=[0,40,80];save.missionProgress={};save.completed=[];save.missionClaimed=[];save.missionReset20261102=true;try{localStorage.setItem(KEY,JSON.stringify(save));}catch{}}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(save));}catch{storageOK=false;}}
 function toast(text){$('#toast').textContent=text;$('#toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),2600);}
 const soundPlayer=createSoundPlayer();
@@ -115,7 +117,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'POWER-UP HUD CLEANUP';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'CLAIMABLE MISSIONS';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -777,9 +779,9 @@ function missionEligible(m,type,sub){if(m.event!==type)return false;const t=m.te
  if(type==='KilledMovingEnemy'){if(t.includes('jet')&&sub!==1)return false;if((t.includes('sword')||t.includes('knife'))&&sub!==0)return false;}return true;}
 function event(type,amount=1,sub=0){if(type==='bossShoot')sfx('shoot',1);if(type==='bossCock'&&save.settings.sound)soundPlayer.play(BOSS_COCK_SOUND,save.settings.volume*.55,{rate:sub});if(['shoot','jump','coin','hit','hazardDestroy','hazardCrash','hazardHit','enemyDestroy','explosion','health','shield','coinBoost','revive'].includes(type))sfx(type,sub);if(type==='bossStart'){setMusic('M_0003_Boss.wav');toast('BOSS INCOMING!');}if(type==='bossEnd'){setMusic('M_0002_InGame.wav');toast(`${world?.mode.id===BOMB_MODE?'CHALLENGE CLEARED!':'Boss defeated!'} +${fmt(sub)} coins`);}if(type==='coinBoost')toast('COIN FRENZY! x2 for '+COIN_BOOST_DURATION+' seconds'+(world?.effects.doubleCoins?' (x4 with shop bonus!)':''));if(type==='revive')toast('Extra life! Back in action.');if(type==='Died'){resetInput();setMusic('M_0004_GameOverLoop.wav');}
  if(BOSS_TEST||!missions.length||!world)return;if(['GotCoin','GotHP','Ran1Meter','Glide1Meter','BossKill','FireWeapon','KilledMovingEnemy','DestroyedStaticHazard','PlayGame'].includes(type))save.totals[type]=(save.totals[type]||0)+amount;
- for(const m of activeMissions()){if(save.completed.includes(m.id)||pendingMission.includes(m.id)||!missionEligible(m,type,sub))continue;const key=String(m.id);let inc=amount;if(type==='Died')inc=m.target;save.missionProgress[key]=(save.missionProgress[key]||0)+inc;if(save.missionProgress[key]>=m.target){pendingMission.push(m.id);save.completed.push(m.id);save.coins+=m.reward;sfx('complete');toast(`Mission complete!\n${m.text}\n+${fmt(m.reward)} coins`);persist();}}
+ for(const m of activeMissions()){if(save.completed.includes(m.id)||pendingMission.includes(m.id)||!missionEligible(m,type,sub))continue;const key=String(m.id);let inc=amount;if(type==='Died')inc=m.target;save.missionProgress[key]=(save.missionProgress[key]||0)+inc;if(save.missionProgress[key]>=m.target){pendingMission.push(m.id);save.completed.push(m.id);sfx('complete');toast(`Mission complete!\n${m.text}\nClaim +${fmt(m.reward)} coins in Missions`);persist();}}
 }
-function advanceMissions(){for(let i=0;i<3;i++){while(save.completed.includes(save.missionIndex[i])&&save.missionIndex[i]<(i+1)*40)save.missionIndex[i]++;if(save.missionIndex[i]>=(i+1)*40)save.missionIndex[i]=-1;}}
+function advanceMissions(){for(let i=0;i<3;i++){while(save.missionClaimed?.includes(save.missionIndex[i])&&save.missionIndex[i]<(i+1)*40)save.missionIndex[i]++;if(save.missionIndex[i]>=(i+1)*40)save.missionIndex[i]=-1;}}
 function startBossTest(){resetInput();tutorial=false;pendingMission=[];activeRunPowerups=[];world=new World({weapon:save.selected,onEvent:event,patterns:normalData.patterns});world.boss=createBoss();Object.assign(world.boss,{x:720,y:412,phase:'fight',vulnerable:true,shoot:.5});state='playing';ended=false;attachHud();muteForPause=false;setMusic('M_0003_Boss.wav');tipTime=0;toast('Boss rig test — jump to hit the driver.');}
 function startRun(isTutorial=false){
  if(BOSS_TEST&&!isTutorial)return startBossTest();
@@ -888,8 +890,30 @@ function equip(id){const group=id.startsWith('head')?'head':id.toLowerCase().inc
   progress.setAttribute('aria-label',row.text+' progress');
   detail.append(title,count,progress);
   const reward=document.createElement('span');reward.className='reward';
-  reward.textContent=row.completed?'✓ +'+fmt(row.reward):'+'+fmt(row.reward)+' ◉';
-  item.append(icon,detail,reward);return item;
+  reward.textContent=row.completed?'READY +'+fmt(row.reward):'+'+fmt(row.reward)+' ◉';
+  item.append(icon,detail,reward);if(row.completed&&!compact){const claim=button('Collect',()=>claimMission(row.id,claim),'ink primary mission-claim');item.append(claim);}return item;
+ }
+ function claimMission(id,source){
+  const mission=missions[id];
+  if(!mission||!save.completed.includes(id)||save.missionClaimed?.includes(id))return;
+  save.missionClaimed??=[];save.missionClaimed.push(id);
+  save.coins+=mission.reward;persist();sfx('coin');
+  const target=ui.querySelector('.screen .balance');
+  if(source&&target){
+   const from=source.getBoundingClientRect(),to=target.getBoundingClientRect();
+   for(let i=0;i<9;i++){
+    const coin=document.createElement('span');coin.className='mission-flying-coin';
+    coin.textContent='◉';coin.style.left=(from.left+from.width/2)+'px';
+    coin.style.top=(from.top+from.height/2)+'px';
+    coin.style.setProperty('--fly-x',(to.left+to.width/2-from.left-from.width/2)+'px');
+    coin.style.setProperty('--fly-y',(to.top+to.height/2-from.top-from.height/2)+'px');
+    coin.style.animationDelay=(i*55)+'ms';document.body.append(coin);
+    coin.addEventListener('animationend',()=>coin.remove(),{once:true});
+   }
+  }
+  setTimeout(()=>{if(state==='missions')missionScreen();},1050);
+  source.disabled=true;source.textContent='Collected!';
+  if(target)target.textContent='◉ '+fmt(save.coins);
  }
  function missionScreen(){
   state='missions';advanceMissions();persist();
@@ -899,7 +923,7 @@ function equip(id){const group=id.startsWith('head')?'head':id.toLowerCase().inc
   if(rows.length)for(const row of rows)c.append(missionEntry(row));
   else{const end=document.createElement('div');end.className='empty';end.textContent='All missions completed!';c.append(end);}
   const note=document.createElement('p');note.className='note';
-  note.textContent=`${save.completed.length} / ${missions.length} missions completed. Completing each objective unlocks the next in its category.`;
+  note.textContent=`${save.missionClaimed?.length||0} / ${missions.length} missions claimed. Collect completed rewards to unlock the next objective.`;
   c.append(note);const actions=document.createElement('div');actions.className='actions';
   actions.append(button('Back to weapons',backToWeapons,'ink primary'));s.append(actions);
  }

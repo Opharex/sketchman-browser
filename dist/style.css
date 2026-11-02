@@ -375,7 +375,7 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
 
 /* A painted Missions button on the existing weapon-selection bottom row. */
 .weapon-selection .selection-missions.menu-art-button{
- position:absolute;left:38%;bottom:2.8%;width:24%;height:12.5%;
+ position:absolute;left:auto;right:2%;bottom:18%;width:23%;height:12.5%;
  min-width:0;min-height:0;z-index:3
 }
 .weapon-selection .selection-missions.menu-art-button .menu-lettering{
@@ -441,3 +441,10 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
  .run-powerup img{width:clamp(32px,5.2vw,48px);height:clamp(32px,5.2vw,48px)}
  .run-powerup-left{font-size:clamp(16px,2.5vw,25px)}
 }
+
+.mission-claim{font-size:clamp(12px,1.6vw,19px);padding:5px 12px;white-space:nowrap}
+.mission-flying-coin{position:fixed;z-index:99999;pointer-events:none;color:#f6c83e;
+ font-size:25px;font-weight:900;text-shadow:1px 2px #69450d;
+ animation:mission-coin-flight .65s cubic-bezier(.2,.6,.4,1) forwards}
+@keyframes mission-coin-flight{0%{opacity:1;transform:translate(0,0) scale(1)}
+ 85%{opacity:1}100%{opacity:0;transform:translate(var(--fly-x),var(--fly-y)) scale(.45)}}
