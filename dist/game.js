@@ -115,7 +115,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'POWER-UP STOCK HUD';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'POWER-UP HUD CLEANUP';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -730,29 +730,19 @@ function renderWeaponSelection(){paper();notebook();drawPlayerSelection({index:s
 // modifies stock or power-up activation: the game engine stays authoritative.
 function mountRunPowerupHud(){
  if(tutorial||!activeRunPowerups.length)return;
- const panel=document.createElement('section');
- panel.className='run-powerups run-powerups-intro';
- panel.setAttribute('aria-label','Active run power-ups and remaining charges');
- const heading=document.createElement('div');heading.className='run-powerups-heading';
- heading.textContent='ACTIVE POWER-UPS';panel.append(heading);
+ const panel=document.createElement('section');panel.className='run-powerups';
+ panel.setAttribute('aria-label','Equipped power-ups and remaining stock');
  for(const badge of activeRunPowerups){
   const chip=document.createElement('div');chip.className='run-powerup';
-  chip.dataset.powerupId=badge.id;
   const img=document.createElement('img');img.src='shop-art/'+badge.icon+'.png';img.alt='';
-  const name=document.createElement('span');name.className='run-powerup-name';name.textContent=badge.name;
-  const remaining=document.createElement('strong');remaining.className='run-powerup-left';
-  remaining.textContent=runPowerupStockLabel(badge);
-  const status=document.createElement('span');status.className='run-powerup-state';
-  status.textContent=badge.id==='life'?(world?.reviveUsed?'USED':'READY'):'ON';
-  if(badge.id==='life'&&world?.reviveUsed)chip.classList.add('run-powerup-used');
-  chip.title=badge.name+' · '+(badge.permanent?'Permanent':remaining.textContent+' after this run started');
-  chip.setAttribute('aria-label',badge.name+' active, '+(badge.permanent?'permanent':remaining.textContent));
-  chip.append(img,name,remaining,status);panel.append(chip);
+  const count=document.createElement('strong');count.className='run-powerup-left';
+  count.textContent=badge.permanent?'∞':String(badge.remaining);
+  chip.title=badge.name+' · '+runPowerupStockLabel(badge);
+  chip.setAttribute('aria-label',badge.name+', '+runPowerupStockLabel(badge));
+  chip.append(img,count);panel.append(chip);
  }
  ui.append(panel);
- // Starting a run makes each name explicit; after the intro, keep icons and
- // stock numbers visible without blocking the scenery.
- setTimeout(()=>{panel.classList.remove('run-powerups-intro');heading.textContent='POWER-UPS';},3800);
+ panel.addEventListener('animationend',()=>panel.remove(),{once:true});
 }
 function attachHud(){
  disposeTouchControls();
@@ -785,11 +775,7 @@ function missionEligible(m,type,sub){if(m.event!==type)return false;const t=m.te
  if(type==='FireWeapon'){const names={pistol:0,shotgun:1,smg:2,rpg:3,'explosive arrows':4};for(const [word,id]of Object.entries(names))if(t.includes(word)&&sub!==id)return false;}
  if(type==='DestroyedStaticHazard'||type==='SmashIntoStaticHazard'||type==='NearMissStaticHazard'){const names={crate:0,barrel:1,'spike board':2,'land mine':3,saw:4,'air mine':5,'junk pile':6,'death ray':7};for(const [word,id]of Object.entries(names))if(t.includes(word)&&sub!==id)return false;}
  if(type==='KilledMovingEnemy'){if(t.includes('jet')&&sub!==1)return false;if((t.includes('sword')||t.includes('knife'))&&sub!==0)return false;}return true;}
-function event(type,amount=1,sub=0){if(type==='bossShoot')sfx('shoot',1);if(type==='bossCock'&&save.settings.sound)soundPlayer.play(BOSS_COCK_SOUND,save.settings.volume*.55,{rate:sub});if(['shoot','jump','coin','hit','hazardDestroy','hazardCrash','hazardHit','enemyDestroy','explosion','health','shield','coinBoost','revive'].includes(type))sfx(type,sub);if(type==='bossStart'){setMusic('M_0003_Boss.wav');toast('BOSS INCOMING!');}if(type==='bossEnd'){setMusic('M_0002_InGame.wav');toast(`${world?.mode.id===BOMB_MODE?'CHALLENGE CLEARED!':'Boss defeated!'} +${fmt(sub)} coins`);}if(type==='coinBoost')toast('COIN FRENZY! x2 for '+COIN_BOOST_DURATION+' seconds'+(world?.effects.doubleCoins?' (x4 with shop bonus!)':''));if(type==='revive'){toast('Extra life! Back in action.');
- const lifeChip=ui.querySelector('.run-powerup[data-powerup-id="life"]');
- if(lifeChip){lifeChip.classList.add('run-powerup-used');
-  const status=lifeChip.querySelector('.run-powerup-state');if(status)status.textContent='USED';}
-}if(type==='Died'){resetInput();setMusic('M_0004_GameOverLoop.wav');}
+function event(type,amount=1,sub=0){if(type==='bossShoot')sfx('shoot',1);if(type==='bossCock'&&save.settings.sound)soundPlayer.play(BOSS_COCK_SOUND,save.settings.volume*.55,{rate:sub});if(['shoot','jump','coin','hit','hazardDestroy','hazardCrash','hazardHit','enemyDestroy','explosion','health','shield','coinBoost','revive'].includes(type))sfx(type,sub);if(type==='bossStart'){setMusic('M_0003_Boss.wav');toast('BOSS INCOMING!');}if(type==='bossEnd'){setMusic('M_0002_InGame.wav');toast(`${world?.mode.id===BOMB_MODE?'CHALLENGE CLEARED!':'Boss defeated!'} +${fmt(sub)} coins`);}if(type==='coinBoost')toast('COIN FRENZY! x2 for '+COIN_BOOST_DURATION+' seconds'+(world?.effects.doubleCoins?' (x4 with shop bonus!)':''));if(type==='revive')toast('Extra life! Back in action.');if(type==='Died'){resetInput();setMusic('M_0004_GameOverLoop.wav');}
  if(BOSS_TEST||!missions.length||!world)return;if(['GotCoin','GotHP','Ran1Meter','Glide1Meter','BossKill','FireWeapon','KilledMovingEnemy','DestroyedStaticHazard','PlayGame'].includes(type))save.totals[type]=(save.totals[type]||0)+amount;
  for(const m of activeMissions()){if(save.completed.includes(m.id)||pendingMission.includes(m.id)||!missionEligible(m,type,sub))continue;const key=String(m.id);let inc=amount;if(type==='Died')inc=m.target;save.missionProgress[key]=(save.missionProgress[key]||0)+inc;if(save.missionProgress[key]>=m.target){pendingMission.push(m.id);save.completed.push(m.id);save.coins+=m.reward;sfx('complete');toast(`Mission complete!\n${m.text}\n+${fmt(m.reward)} coins`);persist();}}
 }
@@ -1009,7 +995,32 @@ window.addEventListener('keydown',e=>{const k=e.code;
   if(k==='Enter'&&!e.target.closest?.('button')){e.preventDefault();confirmGameMode();return;}
   if(k==='Escape'){e.preventDefault();menu();return;}
   return;
- }if(state==='select'&&(k==='KeyA'||k==='KeyD')){e.preventDefault();if(!e.target.closest?.('.weapon-selection'))document.querySelector('.weapon-selection')?.dispatchEvent(new KeyboardEvent('keydown',{key:k==='KeyA'?'a':'d',bubbles:false}));return;}if(state!=='playing')return;const c=save.settings.controls;if(k!==c.jump&&k!==c.fire)return;e.preventDefault();keys.add(k);if(k===c.jump)world.jump();if(k===c.fire&&world.cooldown<=0)world.shoot();syncInput();});window.addEventListener('keyup',e=>{keys.delete(e.code);syncInput();});window.addEventListener('blur',()=>{if(state==='playing')pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause();});window.addEventListener('contextmenu',e=>{if(e.target.closest('#frame'))e.preventDefault();});if(matchMedia('(pointer: coarse)').matches)$('#hint').textContent='Touch controls · landscape recommended';const toggleFullscreen=async()=>{sfx('click');const app=$('#app');try{if(document.fullscreenElement){await document.exitFullscreen();}else if(app.requestFullscreen){await app.requestFullscreen();if(window.screen.orientation?.lock)await window.screen.orientation.lock('landscape').catch(()=>{});}else{app.classList.toggle('app-expanded');}}catch{app.classList.toggle('app-expanded');}resizeViewport();};$('#fullscreen').onclick=toggleFullscreen;$('#mobileFullscreen').onclick=toggleFullscreen;
+ }if(state==='select'&&(k==='KeyA'||k==='KeyD')){e.preventDefault();if(!e.target.closest?.('.weapon-selection'))document.querySelector('.weapon-selection')?.dispatchEvent(new KeyboardEvent('keydown',{key:k==='KeyA'?'a':'d',bubbles:false}));return;}if(state!=='playing')return;const c=save.settings.controls;if(k!==c.jump&&k!==c.fire)return;e.preventDefault();keys.add(k);if(k===c.jump)world.jump();if(k===c.fire&&world.cooldown<=0)world.shoot();syncInput();});window.addEventListener('keyup',e=>{keys.delete(e.code);syncInput();});window.addEventListener('blur',()=>{if(state==='playing')pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause();});window.addEventListener('contextmenu',e=>{if(e.target.closest('#frame'))e.preventDefault();});if(matchMedia('(pointer: coarse)').matches)$('#hint').textContent='Touch controls · landscape recommended';// The Fullscreen API usually requires a user gesture. Try on launch and
+// retry once on the first tap/key if the browser blocks automatic fullscreen.
+let fullscreenRetryArmed=true;
+async function enterGameFullscreen(){
+ const app=$('#app');
+ if(document.fullscreenElement)return true;
+ try{
+  if(!app.requestFullscreen)throw Error('Fullscreen unavailable');
+  await app.requestFullscreen();
+  if(window.screen.orientation?.lock)await window.screen.orientation.lock('landscape').catch(()=>{});
+  app.classList.remove('app-expanded');resizeViewport();return true;
+ }catch{app.classList.add('app-expanded');resizeViewport();return false;}
+}
+async function retryFullscreenOnGesture(){
+ if(!fullscreenRetryArmed)return;
+ fullscreenRetryArmed=false;
+ if(!document.fullscreenElement)await enterGameFullscreen();
+}
+document.addEventListener('pointerdown',retryFullscreenOnGesture,{capture:true,once:true});
+document.addEventListener('keydown',retryFullscreenOnGesture,{capture:true,once:true});
+const toggleFullscreen=async()=>{
+ sfx('click');if(document.fullscreenElement){await document.exitFullscreen();resizeViewport();}
+ else await enterGameFullscreen();
+};
+$('#fullscreen').onclick=toggleFullscreen;$('#mobileFullscreen').onclick=toggleFullscreen;
+void enterGameFullscreen();
 let simulationRemainder=0;
 function frame(now){const dt=Math.max(0,Math.min((now-last)/1000||0,.1));last=now;anim+=dt;
  if(state==='playing'&&world){simulationRemainder+=dt;while(simulationRemainder>=1/60-1e-9&&state==='playing'){world.update(1/60);emberTrail.step(world,selectedSkin==='obsidian_ember',1/60,PLAYER_X);tipTime+=1/60;simulationRemainder-=1/60;if(world.dead&&world.deathTime>1.25)finishRun();}}else simulationRemainder=0;

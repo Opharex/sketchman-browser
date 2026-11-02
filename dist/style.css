@@ -422,37 +422,22 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
  .game-over-screen .actions .menu-art-button{min-height:36px;height:clamp(36px,7vh,48px)}
 }
 
-/* Runs show exactly which equipped upgrades were consumed and stock left afterward.
-   Decorative overlay only: touches continue through to jump/fire. */
+
+/* Top-center launch indicators: larger icons, no panel, auto-fade after 5s. */
 #ui>.run-powerups,#ui>.run-powerups *{pointer-events:none!important}
-#ui>.run-powerups{
- position:absolute;z-index:2;left:3%;top:19%;width:max-content;max-width:58%;
- padding:4px 6px 5px;border:1.5px solid #356082b5;
- background:#f6f3dfdf;box-shadow:2px 3px 0 #143b5a29;
- border-radius:9px;display:flex;flex-wrap:wrap;align-content:flex-start;
- column-gap:5px;row-gap:3px;color:#173e63;user-select:none
-}
-.run-powerups-heading{flex:0 0 100%;font-size:clamp(9px,1.25vw,13px);
- font-weight:900;font-style:italic;letter-spacing:.07em;padding-left:2px}
-.run-powerup{display:flex;align-items:center;gap:3px;flex:0 0 auto;
- max-width:100%;background:#e3edf0b8;border:1px solid #8cabbbaa;
- border-radius:5px;padding:1px 3px}
-.run-powerup img{display:block;width:clamp(17px,2.3vw,25px);height:clamp(17px,2.3vw,25px);
- flex-shrink:0;object-fit:contain}
-.run-powerup-name{font-size:clamp(9px,1.1vw,13px);font-weight:800;
- line-height:1.1;max-width:110px;white-space:normal}
-.run-powerup-left{font-size:clamp(10px,1.15vw,15px);font-weight:900;
- white-space:nowrap;line-height:1.1}
-.run-powerup-state{font-size:clamp(8px,.9vw,10px);font-weight:900;color:#28764f;
- white-space:nowrap}
-.run-powerups:not(.run-powerups-intro) .run-powerup-name{display:none}
-.run-powerups:not(.run-powerups-intro) .run-powerup-state{display:none}
-.run-powerups .run-powerup-used{opacity:.63;filter:grayscale(.45)}
-.run-powerups .run-powerup-used .run-powerup-state{color:#8c4f34}
+#ui>.run-powerups{position:absolute;top:2%;left:50%;transform:translateX(-50%);
+ z-index:2;display:flex;align-items:center;justify-content:center;gap:18px;
+ max-width:72%;padding:0;border:0;background:none;box-shadow:none;
+ animation:run-powerups-vanish 5s ease-in forwards}
+.run-powerup{display:flex;align-items:center;gap:5px;background:none;border:0;padding:0}
+.run-powerup img{display:block;width:clamp(36px,5.5vw,58px);
+ height:clamp(36px,5.5vw,58px);object-fit:contain}
+.run-powerup-left{font-size:clamp(18px,2.8vw,30px);font-weight:900;
+ color:#fff;text-shadow:-2px -2px 0 #204c70,2px -2px 0 #204c70,
+ -2px 2px 0 #204c70,2px 2px 0 #204c70,0 3px 5px #0c2539}
+@keyframes run-powerups-vanish{0%,72%{opacity:1}100%{opacity:0}}
 @media(max-width:600px),(max-height:480px){
- #ui>.run-powerups{top:19%;max-width:58%;padding:2px 4px;column-gap:3px;row-gap:2px}
- .run-powerup{gap:2px;padding:1px 2px}
- .run-powerup-name{max-width:75px;font-size:clamp(8px,1.3vw,11px)}
- .run-powerup-left{font-size:clamp(9px,1.45vw,13px)}
- .run-powerups-heading{font-size:clamp(8px,1.2vw,11px)}
+ #ui>.run-powerups{top:1.5%;gap:10px}
+ .run-powerup img{width:clamp(32px,5.2vw,48px);height:clamp(32px,5.2vw,48px)}
+ .run-powerup-left{font-size:clamp(16px,2.5vw,25px)}
 }

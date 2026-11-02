@@ -34,14 +34,14 @@ test('Run snapshot is built after spending equipped charges and never in tutoria
  assert.match(game,/if\(tutorial\|\|!activeRunPowerups\.length\)return/);
  assert.match(game,/runPowerupStockLabel\(badge\)/);
 });
-test('The indicator remains visible after the intro and never steals touch inputs',()=>{
- assert.match(game,/panel\.classList\.remove\('run-powerups-intro'\)/);
- assert.match(game,/run-powerup\[data-powerup-id="life"\]/);
- assert.match(css,/#ui>\.run-powerups/);
+test('Launch-only icon display fades after five seconds',()=>{
+ assert.match(game,/panel\.addEventListener\('animationend',\(\)=>panel\.remove\(\)/);
+ assert.match(css,/@keyframes run-powerups-vanish/);
  assert.match(css,/pointer-events:none!important/);
+ assert.doesNotMatch(game,/run-powerups-heading/);
 });
-
-test('Extra life USED state stays visible after pause and resume',()=>{
- assert.match(game,/world\?\.reviveUsed\?'USED':'READY'/);
- assert.match(game,/badge\.id==='life'&&world\?\.reviveUsed/);
+test('Fullscreen attempts at launch and retries on first user interaction',()=>{
+ assert.match(game,/void enterGameFullscreen\(\)/);
+ assert.match(game,/pointerdown',retryFullscreenOnGesture/);
+ assert.match(game,/keydown',retryFullscreenOnGesture/);
 });
