@@ -117,7 +117,7 @@ function coinNumber(value,x,y,width,height,size=24,color='#173f68'){
 }
 function notebook(){img('SCN_NoteBookTop_01',0,0,960,20);img('SCN_NoteBookBottom_01',0,620,960,20);img('SCN_NoteBookLeft_01',0,0,18,640);img('SCN_NoteBookRight_01',944,0,16,640);}
 // Change this unique splash phrase on every published gameplay update.
-const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'CLAIMABLE MISSIONS';
+const VERSION_SPLASH=BOSS_TEST?'BOSS RIG QUICK TEST':'FULLSCREEN LOADING CHECKS';
 let versionSplashImage=null;
 function drawVersionSplash(){
  if(!versionSplashImage)versionSplashImage=menuLettering(VERSION_SPLASH);
@@ -1022,6 +1022,22 @@ window.addEventListener('keydown',e=>{const k=e.code;
  }if(state==='select'&&(k==='KeyA'||k==='KeyD')){e.preventDefault();if(!e.target.closest?.('.weapon-selection'))document.querySelector('.weapon-selection')?.dispatchEvent(new KeyboardEvent('keydown',{key:k==='KeyA'?'a':'d',bubbles:false}));return;}if(state!=='playing')return;const c=save.settings.controls;if(k!==c.jump&&k!==c.fire)return;e.preventDefault();keys.add(k);if(k===c.jump)world.jump();if(k===c.fire&&world.cooldown<=0)world.shoot();syncInput();});window.addEventListener('keyup',e=>{keys.delete(e.code);syncInput();});window.addEventListener('blur',()=>{if(state==='playing')pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause();});window.addEventListener('contextmenu',e=>{if(e.target.closest('#frame'))e.preventDefault();});if(matchMedia('(pointer: coarse)').matches)$('#hint').textContent='Touch controls · landscape recommended';// The Fullscreen API usually requires a user gesture. Try on launch and
 // retry once on the first tap/key if the browser blocks automatic fullscreen.
 let fullscreenRetryArmed=true;
+// Five checks during loading; true fullscreen still requires browser permission.
+let loadingFullscreenChecks=0;
+function fullscreenCheckDuringLoading(){
+ if(state!=='loading'||loadingFullscreenChecks>=5)return;
+ loadingFullscreenChecks++;
+ if(document.fullscreenElement){resizeViewport();return;}
+ // Always maximize the viewport, even when the Fullscreen API is blocked.
+ $('#app').classList.add('app-expanded');resizeViewport();
+ void enterGameFullscreen();
+}
+function scheduleLoadingFullscreenChecks(){
+ // Spread the checks through the loading sequence rather than firing together.
+ for(const delay of [0,350,900,1600,2600])
+  setTimeout(fullscreenCheckDuringLoading,delay);
+}
+let fullscreenRetryArmed=true;
 async function enterGameFullscreen(){
  const app=$('#app');
  if(document.fullscreenElement)return true;
@@ -1044,13 +1060,13 @@ const toggleFullscreen=async()=>{
  else await enterGameFullscreen();
 };
 $('#fullscreen').onclick=toggleFullscreen;$('#mobileFullscreen').onclick=toggleFullscreen;
-void enterGameFullscreen();
+scheduleLoadingFullscreenChecks();
 let simulationRemainder=0;
 function frame(now){const dt=Math.max(0,Math.min((now-last)/1000||0,.1));last=now;anim+=dt;
  if(state==='playing'&&world){simulationRemainder+=dt;while(simulationRemainder>=1/60-1e-9&&state==='playing'){world.update(1/60);emberTrail.step(world,selectedSkin==='obsidian_ember',1/60,PLAYER_X);tipTime+=1/60;simulationRemainder-=1/60;if(world.dead&&world.deathTime>1.25)finishRun();}}else simulationRemainder=0;
  if(world&&['playing','paused','over'].includes(state))renderWorld();else if(state==='menu')renderMenu();else if(state==='settings')renderOriginalOptions();else if(state==='select'){selectionMotion.advance(dt);renderWeaponSelection();}else if(state==='game-modes'){modeCarousel.motion.advance(dt);updateModeCarousel();}else if(state==='skins')updateSkinPreview();requestAnimationFrame(frame);
 }
-async function boot(){try{const menuPortraitsReady=preloadMenuPortraits();const skinThumbsReady=preloadSkinThumbnails().catch(e=>{console.error('Skin thumbnails failed:',e);return 0;});const bossAudioReady=soundPlayer.preload([BOSS_SHOT_SOUND,BOSS_COCK_SOUND]);let atlasProgress=0,uiProgress=0;const progress=()=>{$('#progress').value=atlasProgress*.7+uiProgress*.3;};$('#loadStatus').textContent='Loading artwork and menu textures';const uiReady=preloadUiImages(UI_IMAGE_URLS,{onProgress:(done,total)=>{uiProgress=done/total*100;progress();}});uiReady.catch(()=>{});warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
+async function boot(){try{fullscreenCheckDuringLoading();const menuPortraitsReady=preloadMenuPortraits();const skinThumbsReady=preloadSkinThumbnails().catch(e=>{console.error('Skin thumbnails failed:',e);return 0;});const bossAudioReady=soundPlayer.preload([BOSS_SHOT_SOUND,BOSS_COCK_SOUND]);let atlasProgress=0,uiProgress=0;const progress=()=>{$('#progress').value=atlasProgress*.7+uiProgress*.3;};$('#loadStatus').textContent='Loading artwork and menu textures';const uiReady=preloadUiImages(UI_IMAGE_URLS,{onProgress:(done,total)=>{uiProgress=done/total*100;progress();}});uiReady.catch(()=>{});warmMenuMusic();const intro=playLoadingIntro($('#loading'));intro.catch(()=>{});[sprites,missions,normalData]=await Promise.all([fetch('assets/sprites.json').then(r=>r.json()),fetch('assets/missions.json').then(r=>r.json()),fetch('assets/normal-patterns.json').then(r=>r.json())]);const sheets=new Map();for(const [n,s]of Object.entries(sprites)){const key=s.atlas+'_'+s.v[0];if(!sheets.has(key))sheets.set(key,{atlas:s.atlas,index:s.v[0],names:[]});sheets.get(key).names.push(n);}let loaded=0;const queue=[...sheets.values()];
  await Promise.all(Array.from({length:2},async()=>{while(queue.length){const sheet=queue.shift();await new Promise((resolve,reject)=>{
   const im=new Image();im.onload=()=>{try{for(const n of sheet.names){const v=sprites[n].v,c=document.createElement('canvas');c.width=v[7];c.height=v[8];const context=c.getContext('2d');if(!context)throw new Error('Graphics memory unavailable');context.drawImage(im,v[1],v[2],v[7],v[8],0,0,v[7],v[8]);assets[n]=c;}loaded++;atlasProgress=loaded/sheets.size*100;progress();resolve();}catch(error){reject(error);}finally{im.onload=null;im.onerror=null;im.removeAttribute('src');}};
   im.onerror=()=>reject(new Error('Missing atlas: '+sheet.atlas));im.src=`assets/Graphics/${sheet.atlas}/${sheet.atlas}_${sheet.index+1}.png`;
@@ -1059,7 +1075,7 @@ async function boot(){try{const menuPortraitsReady=preloadMenuPortraits();const 
  uiImages=await uiReady;await bossAudioReady;await skinThumbsReady;menuPortraitImages=await menuPortraitsReady;
  if(isAtlasSkin(selectedSkin))try{await ensureSkinAtlas(selectedSkin);validateSkinMetadata(sprites);}catch(error){console.error('Saved skin atlas unavailable:',error);selectedSkin=DEFAULT_SKIN;}
 
- const menuFont=uiImages.get('assets/Graphics/Fonts/S1_Dialogs22_1.png');setMenuFont(menuFont);prepareMenus();updateControlHint();$('#progress').value=100;$('#loadStatus').textContent='Ready';await intro;$('#loading').remove();menu();last=performance.now();requestAnimationFrame(frame);}catch(e){$('#loadStatus').textContent='Could not load the game. Reload to try again.';console.error(e);}}
+ const menuFont=uiImages.get('assets/Graphics/Fonts/S1_Dialogs22_1.png');setMenuFont(menuFont);prepareMenus();updateControlHint();$('#progress').value=100;$('#loadStatus').textContent='Ready';await intro;fullscreenCheckDuringLoading();$('#loading').remove();menu();last=performance.now();requestAnimationFrame(frame);}catch(e){$('#loadStatus').textContent='Could not load the game. Reload to try again.';console.error(e);}}
 // Read-only diagnostic surface for verifying the running game.
 window.sketchman={get state(){return state;},get world(){return world;},get save(){return JSON.parse(JSON.stringify(save));}};
 boot();

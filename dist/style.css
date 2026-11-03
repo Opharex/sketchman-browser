@@ -448,3 +448,6 @@ body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-i
  animation:mission-coin-flight .65s cubic-bezier(.2,.6,.4,1) forwards}
 @keyframes mission-coin-flight{0%{opacity:1;transform:translate(0,0) scale(1)}
  85%{opacity:1}100%{opacity:0;transform:translate(var(--fly-x),var(--fly-y)) scale(.45)}}
+
+/* Fullscreen fallback starts during loading, without waiting for a tap. */
+#app.app-expanded #frame{max-height:100dvh}

@@ -29,7 +29,7 @@ test('portrait picker is independent and avoids consecutive repeats',()=>{
 });
 test('title swaps finished preloaded images without any runtime UVs or repainting',()=>{
  const game=fs.readFileSync(new URL('../dist/game.js',import.meta.url),'utf8');
- assert.match(game,/CLAIMABLE MISSIONS/);
+ assert.match(game,/FULLSCREEN LOADING CHECKS/);
  assert.match(game,/menuPortraitImages=await menuPortraitsReady/);
  assert.match(game,/paint\.context\.drawImage\(paint\.titleBase,0,0\)/);
  assert.match(game,/paint\.context\.drawImage\(layer,327,85\)/);
